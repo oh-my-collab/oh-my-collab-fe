@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useQuery } from "@tanstack/react-query";
 
@@ -14,19 +14,21 @@ export function serializeIssueFilters(filters: Record<string, string | undefined
 }
 
 export function useIssuesQuery(filters: Record<string, string | undefined>) {
+  const orgId = filters.orgId ?? "";
   const params = serializeIssueFilters(filters);
   const key = params.toString();
+
   return useQuery({
     queryKey: queryKeys.issues(key),
-    queryFn: () => backendClient.listIssues(params),
-    enabled: Boolean(filters.orgId),
+    queryFn: () => backendClient.listIssues(orgId, params),
+    enabled: Boolean(orgId),
   });
 }
 
-export function useIssueQuery(issueId: string) {
+export function useIssueQuery(orgId: string, issueId: string) {
   return useQuery({
-    queryKey: queryKeys.issue(issueId),
-    queryFn: () => backendClient.getIssue(issueId),
-    enabled: Boolean(issueId),
+    queryKey: queryKeys.issue(orgId, issueId),
+    queryFn: () => backendClient.getIssue(orgId, issueId),
+    enabled: Boolean(orgId && issueId),
   });
 }

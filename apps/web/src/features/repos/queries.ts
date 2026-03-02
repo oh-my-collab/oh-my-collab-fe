@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useQuery } from "@tanstack/react-query";
 
@@ -13,18 +13,18 @@ export function useRepositoriesByOrgQuery(orgId: string) {
   });
 }
 
-export function useRepositoryQuery(repoId: string) {
+export function useRepositoryQuery(orgId: string, repoId: string) {
   return useQuery({
-    queryKey: queryKeys.repo(repoId),
-    queryFn: () => backendClient.getRepo(repoId),
-    enabled: Boolean(repoId),
+    queryKey: queryKeys.repo(orgId, repoId),
+    queryFn: () => backendClient.getRepo(orgId, repoId),
+    enabled: Boolean(orgId && repoId),
   });
 }
 
-export function useRepositoryActivityQuery(repoId: string) {
+export function useRepositoryActivityQuery(orgId: string, repoId: string) {
   return useQuery({
-    queryKey: queryKeys.repoActivity(repoId),
-    queryFn: () => backendClient.getRepoActivity(repoId),
-    enabled: Boolean(repoId),
+    queryKey: queryKeys.repoActivity(orgId, repoId),
+    queryFn: () => backendClient.getRepoActivity(orgId, repoId),
+    enabled: Boolean(orgId && repoId),
   });
 }

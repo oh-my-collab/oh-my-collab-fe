@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,7 +42,7 @@ export function IssueCard({ issue }: { issue: Issue }) {
           <span className="text-xs text-muted-foreground">{issue.id}</span>
         </div>
         <CardTitle className="text-sm leading-5">
-          <Link href={`/issues/${issue.id}`} className="hover:underline">
+          <Link href={`/issues/${issue.id}?orgId=${issue.orgId}`} className="hover:underline">
             {issue.title}
           </Link>
         </CardTitle>

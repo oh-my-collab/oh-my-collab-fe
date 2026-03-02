@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -112,7 +112,7 @@ export default function OrgDashboardPage() {
               .map((issue) => (
                 <Link
                   key={issue.id}
-                  href={`/issues/${issue.id}`}
+                  href={`/issues/${issue.id}?orgId=${orgId}`}
                   className="block rounded-md border border-border p-2 hover:bg-muted/40"
                 >
                   <p className="text-sm font-semibold">{issue.id} · {issue.title}</p>

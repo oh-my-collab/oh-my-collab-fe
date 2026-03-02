@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -14,6 +14,7 @@ import { ErrorState } from "@/components/shared/error-state";
 import { TableSkeleton } from "@/components/shared/skeletons";
 import { useOrganizationsQuery } from "@/features/orgs/queries";
 import { useSettingsQuery, useUpdateSettingsMutation } from "@/features/settings/queries";
+import { useUiStore } from "@/features/shared/ui-store";
 import { getApiErrorDescription } from "@/lib/api/error";
 
 const schema = z.object({
@@ -26,9 +27,14 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export default function SettingsPage() {
+  const activeOrgId = useUiStore((state) => state.activeOrgId);
+  const setActiveOrgId = useUiStore((state) => state.setActiveOrgId);
+
   const orgQuery = useOrganizationsQuery();
-  const settingsQuery = useSettingsQuery();
-  const updateMutation = useUpdateSettingsMutation();
+  const resolvedOrgId = activeOrgId ?? orgQuery.data?.defaultOrgId ?? "";
+
+  const settingsQuery = useSettingsQuery(resolvedOrgId);
+  const updateMutation = useUpdateSettingsMutation(resolvedOrgId);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -39,6 +45,12 @@ export default function SettingsPage() {
       issueStatusNotifications: true,
     },
   });
+
+  useEffect(() => {
+    if (!activeOrgId && orgQuery.data?.defaultOrgId) {
+      setActiveOrgId(orgQuery.data.defaultOrgId);
+    }
+  }, [activeOrgId, orgQuery.data?.defaultOrgId, setActiveOrgId]);
 
   useEffect(() => {
     if (!settingsQuery.data?.settings) return;
@@ -61,6 +73,15 @@ export default function SettingsPage() {
       <ErrorState
         title="설정 정보를 불러오지 못했습니다"
         description={getApiErrorDescription(sourceError, "잠시 후 다시 시도해 주세요.")}
+      />
+    );
+  }
+
+  if (!resolvedOrgId) {
+    return (
+      <ErrorState
+        title="조직 컨텍스트가 필요합니다"
+        description="조직을 먼저 선택한 뒤 설정을 다시 열어주세요."
       />
     );
   }
@@ -109,7 +130,7 @@ export default function SettingsPage() {
               </label>
             </div>
 
-            <Button type="submit" disabled={updateMutation.isPending}>
+            <Button type="submit" disabled={updateMutation.isPending || !resolvedOrgId}>
               {updateMutation.isPending ? "저장 중..." : "저장"}
             </Button>
           </form>

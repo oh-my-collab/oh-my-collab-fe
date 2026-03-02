@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -9,7 +9,7 @@ export function useCreateIssueMutation(orgId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: Record<string, unknown>) => backendClient.createIssue(input),
+    mutationFn: (input: Record<string, unknown>) => backendClient.createIssue(orgId, input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["issues"] });
       void queryClient.invalidateQueries({ queryKey: queryKeys.org(orgId) });
@@ -21,9 +21,9 @@ export function useUpdateIssueMutation(orgId: string, issueId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (patch: Record<string, unknown>) => backendClient.updateIssue(issueId, patch),
+    mutationFn: (patch: Record<string, unknown>) => backendClient.updateIssue(orgId, issueId, patch),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.issue(issueId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.issue(orgId, issueId) });
       void queryClient.invalidateQueries({ queryKey: ["issues"] });
       void queryClient.invalidateQueries({ queryKey: queryKeys.org(orgId) });
     },
@@ -35,10 +35,10 @@ export function useReorderIssuesMutation(orgId: string, repoId: string) {
 
   return useMutation({
     mutationFn: (buckets: Record<string, unknown>) =>
-      backendClient.reorderIssues({ orgId, repoId, buckets }),
+      backendClient.reorderIssues(orgId, { orgId, repoId, buckets }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["issues"] });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.repo(repoId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.repo(orgId, repoId) });
     },
   });
 }

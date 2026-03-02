@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -17,8 +17,8 @@ export default function RepoDetailPage() {
   const orgId = params.orgId;
   const repoId = params.repoId;
 
-  const repoQuery = useRepositoryQuery(repoId);
-  const activityQuery = useRepositoryActivityQuery(repoId);
+  const repoQuery = useRepositoryQuery(orgId, repoId);
+  const activityQuery = useRepositoryActivityQuery(orgId, repoId);
   const issuesQuery = useIssuesQuery({ orgId, repoId });
 
   if (repoQuery.isLoading || activityQuery.isLoading || issuesQuery.isLoading) {
@@ -72,7 +72,7 @@ export default function RepoDetailPage() {
           {issues.map((issue) => (
             <Link
               key={issue.id}
-              href={`/issues/${issue.id}`}
+              href={`/issues/${issue.id}?orgId=${orgId}`}
               className="block rounded-md border border-border p-2 hover:bg-muted/40"
             >
               <p className="text-sm font-semibold">{issue.id} · {issue.title}</p>

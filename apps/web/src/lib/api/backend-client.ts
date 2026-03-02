@@ -17,6 +17,14 @@ type ApiErrorPayload = {
   issues?: unknown;
 };
 
+type ApiRequestOptions = {
+  method?: "GET" | "POST" | "PATCH";
+  body?: unknown;
+  headers?: Record<string, string>;
+  cache?: RequestCache;
+  searchParams?: URLSearchParams;
+};
+
 export const CONFIG_MISSING_API_BASE_URL = "CONFIG_MISSING_API_BASE_URL";
 
 function getApiBaseUrl() {
@@ -30,6 +38,32 @@ function getApiBaseUrl() {
 function buildUrl(path: string, searchParams?: URLSearchParams) {
   const query = searchParams ? `?${searchParams.toString()}` : "";
   return `${getApiBaseUrl()}${path}${query}`;
+}
+
+function withOrgId(searchParams: URLSearchParams | undefined, orgId: string) {
+  const next = new URLSearchParams(searchParams);
+  next.set("orgId", orgId);
+  return next;
+}
+
+function apiFetch(path: string, options: ApiRequestOptions = {}) {
+  const headers = new Headers(options.headers);
+  if (options.body !== undefined && !headers.has("content-type")) {
+    headers.set("content-type", "application/json");
+  }
+
+  const init: RequestInit = {
+    method: options.method,
+    headers,
+    credentials: "include",
+    cache: options.cache,
+  };
+
+  if (options.body !== undefined) {
+    init.body = JSON.stringify(options.body);
+  }
+
+  return fetch(buildUrl(path, options.searchParams), init);
 }
 
 async function parseResponse<T>(responseLike: Response | Promise<Response>): Promise<T> {
@@ -59,36 +93,36 @@ async function parseResponse<T>(responseLike: Response | Promise<Response>): Pro
 }
 
 export const backendClient = {
-  getSession: () =>
-    parseResponse<SessionPayload>(fetch(buildUrl(endpoints.session.get), { cache: "no-store" })),
+  getSession: () => parseResponse<SessionPayload>(apiFetch(endpoints.session.get, { cache: "no-store" })),
+
   login: (input: { email: string; password: string }) =>
     parseResponse<{ user: User }>(
-      fetch(buildUrl(endpoints.session.login), {
+      apiFetch(endpoints.session.login, {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(input),
+        body: input,
       })
     ),
+
   logout: () =>
     parseResponse<{ success: boolean }>(
-      fetch(buildUrl(endpoints.session.logout), {
+      apiFetch(endpoints.session.logout, {
         method: "POST",
-        credentials: "include",
       })
     ),
+
   listOrgs: () =>
     parseResponse<{ organizations: Organization[]; defaultOrgId?: string }>(
-      fetch(buildUrl(endpoints.orgs.list), { cache: "no-store" })
+      apiFetch(endpoints.orgs.list, { cache: "no-store" })
     ),
+
   createOrg: (name: string) =>
     parseResponse<{ organization: Organization }>(
-      fetch(buildUrl(endpoints.orgs.list), {
+      apiFetch(endpoints.orgs.list, {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: { name },
       })
     ),
+
   getOrg: (orgId: string) =>
     parseResponse<{
       organization: Organization;
@@ -99,116 +133,159 @@ export const backendClient = {
         weeklyCommits: number;
         weeklyMerges: number;
       };
-    }>(fetch(buildUrl(endpoints.orgs.detail(orgId)), { cache: "no-store" })),
+    }>(apiFetch(endpoints.orgs.detail(orgId), { cache: "no-store" })),
+
   listReposByOrg: (orgId: string) =>
     parseResponse<{ repositories: Repository[] }>(
-      fetch(buildUrl(endpoints.orgs.repos(orgId)), { cache: "no-store" })
+      apiFetch(endpoints.orgs.repos(orgId), { cache: "no-store" })
     ),
-  getRepo: (repoId: string) =>
+
+  getRepo: (orgId: string, repoId: string) =>
     parseResponse<{
       repository: Repository;
       summary: { openIssueCount: number; doneIssueCount: number; highPriorityCount: number };
-    }>(fetch(buildUrl(endpoints.repos.detail(repoId)), { cache: "no-store" })),
-  getRepoActivity: (repoId: string) =>
-    parseResponse<{ activity: Array<{ date: string; commits: number; merges: number }> }>(
-      fetch(buildUrl(endpoints.repos.activity(repoId)), { cache: "no-store" })
-    ),
-  listIssues: (params: URLSearchParams) =>
-    parseResponse<{ issues: Issue[]; users: User[] }>(
-      fetch(buildUrl(endpoints.issues.list, params), { cache: "no-store" })
-    ),
-  createIssue: (input: Record<string, unknown>) =>
-    parseResponse<{ issue: Issue }>(
-      fetch(buildUrl(endpoints.issues.list), {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(input),
+    }>(
+      apiFetch(endpoints.repos.detail(repoId), {
+        cache: "no-store",
+        searchParams: withOrgId(undefined, orgId),
       })
     ),
-  getIssue: (issueId: string) =>
+
+  getRepoActivity: (orgId: string, repoId: string) =>
+    parseResponse<{ activity: Array<{ date: string; commits: number; merges: number }> }>(
+      apiFetch(endpoints.repos.activity(repoId), {
+        cache: "no-store",
+        searchParams: withOrgId(undefined, orgId),
+      })
+    ),
+
+  listIssues: (orgId: string, params: URLSearchParams) =>
+    parseResponse<{
+      issues: Issue[];
+      users: User[];
+      page: number;
+      size: number;
+      totalCount: number;
+      sort: string;
+      filtersEcho: Record<string, string | undefined>;
+    }>(
+      apiFetch(endpoints.issues.list, {
+        cache: "no-store",
+        searchParams: withOrgId(params, orgId),
+      })
+    ),
+
+  createIssue: (orgId: string, input: Record<string, unknown>) =>
+    parseResponse<{ issue: Issue }>(
+      apiFetch(endpoints.issues.list, {
+        method: "POST",
+        body: input,
+        searchParams: withOrgId(undefined, orgId),
+      })
+    ),
+
+  getIssue: (orgId: string, issueId: string) =>
     parseResponse<{
       issue: Issue;
       comments: Array<{ id: string; issueId: string; userId: string; body: string; createdAt: string }>;
       users: User[];
-    }>(fetch(buildUrl(endpoints.issues.detail(issueId)), { cache: "no-store" })),
-  updateIssue: (issueId: string, patch: Record<string, unknown>) =>
-    parseResponse<{ issue: Issue }>(
-      fetch(buildUrl(endpoints.issues.detail(issueId)), {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(patch),
-      })
-    ),
-  reorderIssues: (payload: Record<string, unknown>) =>
-    parseResponse<{ issues: Issue[] }>(
-      fetch(buildUrl(endpoints.issues.reorder), {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-    ),
-  listRequests: (orgId: string) => {
-    const searchParams = new URLSearchParams();
-    searchParams.set("orgId", orgId);
-    return parseResponse<{ requests: CollabRequest[]; users: User[] }>(
-      fetch(buildUrl(endpoints.requests.list, searchParams), {
+    }>(
+      apiFetch(endpoints.issues.detail(issueId), {
         cache: "no-store",
+        searchParams: withOrgId(undefined, orgId),
       })
-    );
-  },
-  createRequest: (input: Record<string, unknown>) =>
+    ),
+
+  updateIssue: (orgId: string, issueId: string, patch: Record<string, unknown>) =>
+    parseResponse<{ issue: Issue }>(
+      apiFetch(endpoints.issues.detail(issueId), {
+        method: "PATCH",
+        body: patch,
+        searchParams: withOrgId(undefined, orgId),
+      })
+    ),
+
+  reorderIssues: (orgId: string, payload: Record<string, unknown>) =>
+    parseResponse<{ issues: Issue[] }>(
+      apiFetch(endpoints.issues.reorder, {
+        method: "PATCH",
+        body: payload,
+        searchParams: withOrgId(undefined, orgId),
+      })
+    ),
+
+  listRequests: (orgId: string) =>
+    parseResponse<{ requests: CollabRequest[]; users: User[] }>(
+      apiFetch(endpoints.requests.list, {
+        cache: "no-store",
+        searchParams: withOrgId(undefined, orgId),
+      })
+    ),
+
+  createRequest: (orgId: string, input: Record<string, unknown>) =>
     parseResponse<{ request: CollabRequest }>(
-      fetch(buildUrl(endpoints.requests.list), {
+      apiFetch(endpoints.requests.list, {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(input),
+        body: input,
+        searchParams: withOrgId(undefined, orgId),
       })
     ),
-  updateRequest: (requestId: string, input: Record<string, unknown>) =>
+
+  updateRequest: (orgId: string, requestId: string, input: Record<string, unknown>) =>
     parseResponse<{ request: CollabRequest }>(
-      fetch(buildUrl(endpoints.requests.detail(requestId)), {
+      apiFetch(endpoints.requests.detail(requestId), {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(input),
+        body: input,
+        searchParams: withOrgId(undefined, orgId),
       })
     ),
-  getTeamReport: (orgId: string, period: "week" | "month") => {
-    const searchParams = new URLSearchParams();
-    searchParams.set("orgId", orgId);
-    searchParams.set("period", period);
-    return parseResponse<{ report: TeamReport }>(
-      fetch(buildUrl(endpoints.reports.summary, searchParams), { cache: "no-store" })
-    );
-  },
-  getUserReport: (orgId: string, userId: string, period: "week" | "month") => {
-    const searchParams = new URLSearchParams();
-    searchParams.set("orgId", orgId);
-    searchParams.set("period", period);
-    return parseResponse<{ report: UserReport }>(
-      fetch(buildUrl(endpoints.reports.user(userId), searchParams), { cache: "no-store" })
-    );
-  },
-  listNotifications: () =>
+
+  getTeamReport: (orgId: string, period: "week" | "month") =>
+    parseResponse<{ report: TeamReport }>(
+      apiFetch(endpoints.reports.summary, {
+        cache: "no-store",
+        searchParams: withOrgId(new URLSearchParams({ period }), orgId),
+      })
+    ),
+
+  getUserReport: (orgId: string, userId: string, period: "week" | "month") =>
+    parseResponse<{ report: UserReport }>(
+      apiFetch(endpoints.reports.user(userId), {
+        cache: "no-store",
+        searchParams: withOrgId(new URLSearchParams({ period }), orgId),
+      })
+    ),
+
+  listNotifications: (orgId: string) =>
     parseResponse<{ notifications: Notification[] }>(
-      fetch(buildUrl(endpoints.notifications.list), { cache: "no-store" })
-    ),
-  markNotificationRead: (id: string) =>
-    parseResponse<{ notification: Notification }>(
-      fetch(buildUrl(endpoints.notifications.read(id)), {
-        method: "PATCH",
+      apiFetch(endpoints.notifications.list, {
+        cache: "no-store",
+        searchParams: withOrgId(undefined, orgId),
       })
     ),
-  getSettings: () =>
-    parseResponse<{ settings: AppSettings }>(
-      fetch(buildUrl(endpoints.settings.detail), { cache: "no-store" })
-    ),
-  updateSettings: (input: Record<string, unknown>) =>
-    parseResponse<{ settings: AppSettings }>(
-      fetch(buildUrl(endpoints.settings.detail), {
+
+  markNotificationRead: (orgId: string, id: string) =>
+    parseResponse<{ notification: Notification }>(
+      apiFetch(endpoints.notifications.read(id), {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(input),
+        searchParams: withOrgId(undefined, orgId),
+      })
+    ),
+
+  getSettings: (orgId: string) =>
+    parseResponse<{ settings: AppSettings }>(
+      apiFetch(endpoints.settings.detail, {
+        cache: "no-store",
+        searchParams: withOrgId(undefined, orgId),
+      })
+    ),
+
+  updateSettings: (orgId: string, input: Record<string, unknown>) =>
+    parseResponse<{ settings: AppSettings }>(
+      apiFetch(endpoints.settings.detail, {
+        method: "PATCH",
+        body: input,
+        searchParams: withOrgId(undefined, orgId),
       })
     ),
 };
-

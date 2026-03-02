@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -67,6 +67,7 @@ export default function IssuesPage() {
 
   const issues = query.data?.issues ?? [];
   const users = query.data?.users ?? [];
+  const totalCount = query.data?.totalCount ?? issues.length;
   const labels = Array.from(new Set(issues.flatMap((issue) => issue.labelIds)));
 
   return (
@@ -75,6 +76,7 @@ export default function IssuesPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.1em] text-primary">Issues</p>
         <h2 className="text-2xl font-bold">이슈 리스트</h2>
         <p className="text-sm text-muted-foreground">검색/필터와 상세 편집을 한 흐름에서 처리합니다.</p>
+        <p className="text-xs text-muted-foreground">서버 기준 총 {totalCount}건</p>
       </header>
 
       <div className="grid gap-3 rounded-xl border border-border bg-card p-3 md:grid-cols-2 xl:grid-cols-5">
@@ -119,7 +121,7 @@ export default function IssuesPage() {
         <>
           <DataTable
             columns={[
-              { key: "id", label: "ID", sortable: true, render: (value) => <Link className="text-primary hover:underline" href={`/issues/${String(value)}`}>{String(value)}</Link> },
+              { key: "id", label: "ID", sortable: true, render: (value, row) => <Link className="text-primary hover:underline" href={`/issues/${String(value)}?orgId=${String(row.orgId ?? "")}`}>{String(value)}</Link> },
               { key: "title", label: "제목", sortable: true },
               { key: "status", label: "상태", sortable: true },
               { key: "priority", label: "우선순위", sortable: true },

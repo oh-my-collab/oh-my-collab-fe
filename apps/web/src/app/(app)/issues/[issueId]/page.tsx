@@ -1,19 +1,33 @@
-﻿"use client";
+"use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 
 import { IssueDetailPanel } from "@/components/issues/issue-detail-panel";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { TableSkeleton } from "@/components/shared/skeletons";
 import { useIssueQuery } from "@/features/issues/queries";
+import { useUiStore } from "@/features/shared/ui-store";
 import { getApiErrorDescription } from "@/lib/api/error";
 
 export default function IssueDetailPage() {
   const params = useParams<{ issueId: string }>();
-  const issueId = params.issueId;
+  const searchParams = useSearchParams();
+  const activeOrgId = useUiStore((state) => state.activeOrgId);
 
-  const query = useIssueQuery(issueId);
+  const issueId = params.issueId;
+  const orgId = searchParams.get("orgId") ?? activeOrgId ?? "";
+
+  const query = useIssueQuery(orgId, issueId);
+
+  if (!orgId) {
+    return (
+      <ErrorState
+        title="조직 컨텍스트가 필요합니다"
+        description="조직 화면에서 이슈를 다시 열거나 orgId 쿼리를 포함해 접근해 주세요."
+      />
+    );
+  }
 
   if (query.isLoading) return <TableSkeleton rows={4} />;
 

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Bell, Moon, Plus, Search, Sun } from "lucide-react";
 import Link from "next/link";
@@ -32,11 +32,12 @@ export function TopHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const { setTheme, theme } = useTheme();
+  const activeOrgId = useUiStore((state) => state.activeOrgId);
   const issueSearch = useUiStore((state) => state.issueSearch);
   const setIssueSearch = useUiStore((state) => state.setIssueSearch);
 
-  const { data: notificationData } = useNotificationsQuery();
-  const markReadMutation = useMarkNotificationReadMutation();
+  const { data: notificationData } = useNotificationsQuery(activeOrgId ?? "");
+  const markReadMutation = useMarkNotificationReadMutation(activeOrgId ?? "");
 
   const unreadCount = (notificationData?.notifications ?? []).filter((item) => !item.isRead).length;
   const breadcrumb =
@@ -67,7 +68,7 @@ export function TopHeader() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" aria-label="알림">
+            <Button variant="outline" size="icon" aria-label="알림" disabled={!activeOrgId}>
               <Bell className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -76,12 +77,15 @@ export function TopHeader() {
               <DropdownMenuItem
                 key={notification.id}
                 onClick={() => {
+                  if (!activeOrgId) return;
+
                   if (!notification.isRead) {
                     markReadMutation.mutate(notification.id);
                     toast.success("알림을 읽음 처리했습니다.");
                   }
+
                   if (notification.relatedId?.startsWith("ISS")) {
-                    router.push(`/issues/${notification.relatedId}`);
+                    router.push(`/issues/${notification.relatedId}?orgId=${activeOrgId}`);
                   }
                 }}
                 className="flex flex-col items-start gap-1"
