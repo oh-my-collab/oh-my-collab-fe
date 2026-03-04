@@ -1,5 +1,6 @@
 export const endpoints = {
   session: {
+    signup: "/auth/signup",
     get: "/auth/session",
     login: "/auth/login",
     logout: "/auth/logout",
@@ -34,4 +35,3 @@ export const endpoints = {
     detail: "/settings",
   },
 };
-

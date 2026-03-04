@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -88,6 +89,12 @@ export default function LoginPage() {
               {loginMutation.isPending ? "로그인 중..." : "로그인"}
             </Button>
           </form>
+          <p className="text-center text-xs text-muted-foreground">
+            계정이 없나요?{" "}
+            <Link href="/signup" className="font-medium text-primary underline-offset-4 hover:underline">
+              회원가입
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </main>

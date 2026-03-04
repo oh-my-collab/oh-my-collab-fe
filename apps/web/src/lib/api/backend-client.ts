@@ -95,6 +95,14 @@ async function parseResponse<T>(responseLike: Response | Promise<Response>): Pro
 export const backendClient = {
   getSession: () => parseResponse<SessionPayload>(apiFetch(endpoints.session.get, { cache: "no-store" })),
 
+  signup: (input: { name: string; email: string; password: string }) =>
+    parseResponse<{ user: User }>(
+      apiFetch(endpoints.session.signup, {
+        method: "POST",
+        body: input,
+      })
+    ),
+
   login: (input: { email: string; password: string }) =>
     parseResponse<{ user: User }>(
       apiFetch(endpoints.session.login, {

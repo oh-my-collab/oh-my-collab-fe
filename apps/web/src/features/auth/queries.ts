@@ -25,6 +25,17 @@ export function useLoginMutation() {
   });
 }
 
+export function useSignupMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { name: string; email: string; password: string }) => backendClient.signup(input),
+    onSuccess: () => {
+      document.cookie = `${AUTH_SESSION_COOKIE_NAME}=active; Path=/; Max-Age=2592000; SameSite=Lax`;
+      void queryClient.invalidateQueries({ queryKey: queryKeys.session });
+    },
+  });
+}
+
 export function useLogoutMutation() {
   const queryClient = useQueryClient();
   return useMutation({

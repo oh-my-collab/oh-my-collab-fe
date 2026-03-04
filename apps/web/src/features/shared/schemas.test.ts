@@ -3,6 +3,7 @@
 import {
   createIssueSchema,
   loginSchema,
+  signupSchema,
   createRequestSchema,
   issueReorderSchema,
   updateSettingsSchema,
@@ -58,6 +59,16 @@ describe("schemas", () => {
   it("validates login payload with email and password", () => {
     expect(() =>
       loginSchema.parse({
+        email: "owner@example.com",
+        password: "password123",
+      })
+    ).not.toThrow();
+  });
+
+  it("validates signup payload with name, email and password", () => {
+    expect(() =>
+      signupSchema.parse({
+        name: "김오너",
         email: "owner@example.com",
         password: "password123",
       })
