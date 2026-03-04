@@ -44,6 +44,45 @@ describe("backend-client", () => {
     expect(init.credentials).toBe("include");
   });
 
+  it("sends signup request to /auth/signup with payload", async () => {
+    process.env.NEXT_PUBLIC_API_BASE_URL = "http://localhost:4000";
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          user: {
+            id: "user-1",
+            name: "테스터",
+            email: "tester@example.com",
+            role: "user",
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }
+      )
+    );
+
+    await backendClient.signup({
+      name: "테스터",
+      email: "tester@example.com",
+      password: "password123",
+    });
+
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://localhost:4000/auth/signup");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBe(
+      JSON.stringify({
+        name: "테스터",
+        email: "tester@example.com",
+        password: "password123",
+      })
+    );
+    expect(init.credentials).toBe("include");
+  });
+
   it("appends orgId query for alias issue endpoints and reads list meta", async () => {
     process.env.NEXT_PUBLIC_API_BASE_URL = "http://localhost:4000";
 
