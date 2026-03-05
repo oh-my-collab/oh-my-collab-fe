@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { BreadcrumbNav } from "@/components/ui/breadcrumb";
+import { useSessionQuery } from "@/features/auth/queries";
 import { useNotificationsQuery, useMarkNotificationReadMutation } from "@/features/notifications/queries";
 import { useUiStore } from "@/features/shared/ui-store";
 
@@ -32,6 +33,7 @@ export function TopHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const { setTheme, theme } = useTheme();
+  const sessionQuery = useSessionQuery();
   const activeOrgId = useUiStore((state) => state.activeOrgId);
   const issueSearch = useUiStore((state) => state.issueSearch);
   const setIssueSearch = useUiStore((state) => state.setIssueSearch);
@@ -40,6 +42,10 @@ export function TopHeader() {
   const markReadMutation = useMarkNotificationReadMutation(activeOrgId ?? "");
 
   const unreadCount = (notificationData?.notifications ?? []).filter((item) => !item.isRead).length;
+  const sessionUser = sessionQuery.data?.user;
+  const displayName = sessionUser?.name?.trim() || "내 프로필";
+  const roleLabel = sessionUser?.role === "owner" ? "오너" : "사용자";
+  const avatarFallback = displayName.slice(0, 2).toUpperCase();
   const breadcrumb =
     Object.entries(breadcrumbMap).find(([key]) => pathname === key || pathname.startsWith(`${key}/`))?.[1] ?? [{ label: "대시보드" }];
 
@@ -109,15 +115,20 @@ export function TopHeader() {
           {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
 
-        <div className="flex items-center gap-2 rounded-md border border-border px-2 py-1">
+        <Link
+          href="/settings"
+          aria-label="내 프로필"
+          className="flex items-center gap-2 rounded-md border border-border px-2 py-1 transition-colors hover:bg-muted/50"
+        >
           <Avatar>
-            <AvatarFallback>KO</AvatarFallback>
+            <AvatarFallback>{avatarFallback}</AvatarFallback>
           </Avatar>
           <div className="text-xs">
-            <p className="font-semibold">오너</p>
+            <p className="font-semibold">{displayName}</p>
+            <p className="text-muted-foreground">{roleLabel}</p>
             <p className="text-muted-foreground">미확인 {unreadCount}건</p>
           </div>
-        </div>
+        </Link>
       </div>
     </header>
   );
