@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { Bell, Moon, Plus, Search, Sun } from "lucide-react";
@@ -60,8 +60,9 @@ export function TopHeader() {
 
   const notificationsQuery = useNotificationsQuery(currentContext.orgId ?? "");
   const markReadMutation = useMarkNotificationReadMutation(currentContext.orgId ?? "");
+  const notifications = notificationsQuery.data?.notifications ?? [];
 
-  const unreadCount = (notificationsQuery.data?.notifications ?? []).filter((item) => !item.isRead).length;
+  const unreadCount = notifications.filter((item) => !item.isRead).length;
   const sessionUser = sessionQuery.data?.user;
   const displayName = sessionUser?.name?.trim() || "프로필";
   const roleLabel = sessionUser?.role === "owner" ? "오너" : "사용자";
@@ -110,30 +111,45 @@ export function TopHeader() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
-            {(notificationsQuery.data?.notifications ?? []).slice(0, 6).map((notification) => (
-              <DropdownMenuItem
-                key={notification.id}
-                onClick={() => {
-                  if (!currentContext.orgId) {
-                    return;
-                  }
+            {notificationsQuery.isError ? (
+              <div className="space-y-2 p-2">
+                <p className="text-xs font-semibold">알림을 불러오지 못했습니다</p>
+                <p className="text-xs text-muted-foreground">다시 시도해 최신 상태를 확인해 주세요.</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  aria-label="알림 다시 시도"
+                  onClick={() => void notificationsQuery.refetch()}
+                >
+                  다시 시도
+                </Button>
+              </div>
+            ) : notifications.length ? (
+              notifications.slice(0, 6).map((notification) => (
+                <DropdownMenuItem
+                  key={notification.id}
+                  onClick={() => {
+                    if (!currentContext.orgId) {
+                      return;
+                    }
 
-                  if (!notification.isRead) {
-                    markReadMutation.mutate(notification.id);
-                    toast.success("알림을 읽음 처리했습니다.");
-                  }
+                    if (!notification.isRead) {
+                      markReadMutation.mutate(notification.id);
+                      toast.success("알림을 읽음 처리했습니다.");
+                    }
 
-                  if (notification.relatedId?.startsWith("ISS")) {
-                    router.push(`/issues/${notification.relatedId}?orgId=${currentContext.orgId}`);
-                  }
-                }}
-                className="flex flex-col items-start gap-1"
-              >
-                <span className="text-xs font-semibold">{notification.title}</span>
-                <span className="text-xs text-muted-foreground">{notification.body}</span>
-              </DropdownMenuItem>
-            ))}
-            {notificationsQuery.data?.notifications.length ? null : (
+                    if (notification.relatedId?.startsWith("ISS")) {
+                      router.push(`/issues/${notification.relatedId}?orgId=${currentContext.orgId}`);
+                    }
+                  }}
+                  className="flex flex-col items-start gap-1"
+                >
+                  <span className="text-xs font-semibold">{notification.title}</span>
+                  <span className="text-xs text-muted-foreground">{notification.body}</span>
+                </DropdownMenuItem>
+              ))
+            ) : (
               <DropdownMenuItem className="text-xs text-muted-foreground">알림이 없습니다.</DropdownMenuItem>
             )}
           </DropdownMenuContent>

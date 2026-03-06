@@ -1,15 +1,15 @@
-"use client";
+﻿"use client";
 
+import { useState } from "react";
 import { toast } from "sonner";
 
-import { useUpdateRequestMutation } from "@/features/requests/mutations";
-import type { CollabRequest, User } from "@/features/shared/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
+import { useUpdateRequestMutation } from "@/features/requests/mutations";
+import type { CollabRequest, User } from "@/features/shared/types";
 import { getApiErrorDescription } from "@/lib/api/error";
 
 function statusVariant(status: CollabRequest["status"]) {
@@ -27,6 +27,10 @@ function statusVariant(status: CollabRequest["status"]) {
 
 function getUserName(users: User[], userId: string) {
   return users.find((user) => user.id === userId)?.name ?? userId;
+}
+
+function getEmailLabel(request: CollabRequest) {
+  return request.emailSent ? "이메일 알림 발송됨" : "이메일 알림 미발송";
 }
 
 export function RequestInboxList({
@@ -75,16 +79,23 @@ export function RequestInboxList({
             <Card key={request.id}>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between text-sm">
-                  <span>{request.id} · {request.type}</span>
+                  <span>
+                    {request.id} · {request.type}
+                  </span>
                   <Badge variant={statusVariant(request.status)}>{request.status}</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <p>{request.message}</p>
                 <p className="text-xs text-muted-foreground">
-                  요청자: {getUserName(users, request.fromUserId)} · 기간: {request.fromDate.slice(0, 10)} ~ {request.toDate.slice(0, 10)}
+                  요청자 {getUserName(users, request.fromUserId)} · 기간: {request.fromDate.slice(0, 10)} ~ {request.toDate.slice(0, 10)}
                 </p>
-                <p className="text-xs text-emerald-700 dark:text-emerald-300">이메일 알림 발송됨</p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>{getEmailLabel(request)}</span>
+                  <Badge variant="secondary" className="text-[10px] uppercase tracking-[0.12em]">
+                    demo
+                  </Badge>
+                </div>
 
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" onClick={() => respond(request.id, { status: "accepted" })}>수락</Button>
@@ -96,7 +107,7 @@ export function RequestInboxList({
                   onChange={(event) =>
                     setQuestionMap((prev) => ({ ...prev, [request.id]: event.target.value }))
                   }
-                  placeholder="추가 질문을 남겨주세요"
+                  placeholder="추가 질문을 남겨 주세요"
                 />
                 <Button
                   variant="secondary"
@@ -122,15 +133,20 @@ export function RequestInboxList({
             <Card key={request.id}>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between text-sm">
-                  <span>{request.id} · {request.type}</span>
+                  <span>
+                    {request.id} · {request.type}
+                  </span>
                   <Badge variant={statusVariant(request.status)}>{request.status}</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <p>{request.message}</p>
-                <p className="text-xs text-muted-foreground">
-                  수신자: {getUserName(users, request.toUserId)} · 이메일 알림 발송됨
-                </p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>수신자 {getUserName(users, request.toUserId)} · {getEmailLabel(request)}</span>
+                  <Badge variant="secondary" className="text-[10px] uppercase tracking-[0.12em]">
+                    demo
+                  </Badge>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -139,3 +155,4 @@ export function RequestInboxList({
     </Tabs>
   );
 }
+
