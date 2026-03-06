@@ -3,18 +3,18 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { toast } from "sonner";
+import { z } from "zod";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { ErrorState } from "@/components/shared/error-state";
 import { TableSkeleton } from "@/components/shared/skeletons";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { useOrganizationsQuery } from "@/features/orgs/queries";
 import { useSettingsQuery, useUpdateSettingsMutation } from "@/features/settings/queries";
-import { useUiStore } from "@/features/shared/ui-store";
+import { useResolvedContext } from "@/features/shared/use-resolved-context";
 import { getApiErrorDescription } from "@/lib/api/error";
 
 const schema = z.object({
@@ -27,11 +27,11 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export default function SettingsPage() {
-  const activeOrgId = useUiStore((state) => state.activeOrgId);
-  const setActiveOrgId = useUiStore((state) => state.setActiveOrgId);
-
   const orgQuery = useOrganizationsQuery();
-  const resolvedOrgId = activeOrgId ?? orgQuery.data?.defaultOrgId ?? "";
+  const resolvedContext = useResolvedContext({
+    defaultOrgId: orgQuery.data?.defaultOrgId,
+  });
+  const resolvedOrgId = resolvedContext.orgId ?? "";
 
   const settingsQuery = useSettingsQuery(resolvedOrgId);
   const updateMutation = useUpdateSettingsMutation(resolvedOrgId);
@@ -47,13 +47,9 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    if (!activeOrgId && orgQuery.data?.defaultOrgId) {
-      setActiveOrgId(orgQuery.data.defaultOrgId);
+    if (!settingsQuery.data?.settings) {
+      return;
     }
-  }, [activeOrgId, orgQuery.data?.defaultOrgId, setActiveOrgId]);
-
-  useEffect(() => {
-    if (!settingsQuery.data?.settings) return;
 
     form.reset({
       defaultOrgId: settingsQuery.data.settings.defaultOrgId,
@@ -63,7 +59,7 @@ export default function SettingsPage() {
     });
   }, [form, settingsQuery.data?.settings]);
 
-  if (orgQuery.isLoading || settingsQuery.isLoading) {
+  if (orgQuery.isLoading || (resolvedOrgId && settingsQuery.isLoading)) {
     return <TableSkeleton rows={4} />;
   }
 
@@ -73,6 +69,7 @@ export default function SettingsPage() {
       <ErrorState
         title="설정 정보를 불러오지 못했습니다"
         description={getApiErrorDescription(sourceError, "잠시 후 다시 시도해 주세요.")}
+        onRetry={() => void settingsQuery.refetch()}
       />
     );
   }
@@ -81,7 +78,7 @@ export default function SettingsPage() {
     return (
       <ErrorState
         title="조직 컨텍스트가 필요합니다"
-        description="조직을 먼저 선택한 뒤 설정을 다시 확인해 주세요."
+        description="조직을 먼저 선택한 뒤 설정 화면을 다시 확인해 주세요."
       />
     );
   }
@@ -99,7 +96,7 @@ export default function SettingsPage() {
     <section className="space-y-6">
       <header className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.1em] text-primary">Settings</p>
-        <h2 className="text-2xl font-bold">조직/알림 설정</h2>
+        <h2 className="text-2xl font-bold">조직 및 알림 설정</h2>
         <p className="text-sm text-muted-foreground">기본 조직과 알림 옵션을 관리합니다.</p>
       </header>
 
@@ -113,7 +110,9 @@ export default function SettingsPage() {
               <Label htmlFor="default-org">기본 조직</Label>
               <Select id="default-org" {...form.register("defaultOrgId")}>
                 {(orgQuery.data?.organizations ?? []).map((org) => (
-                  <option key={org.id} value={org.id}>{org.name}</option>
+                  <option key={org.id} value={org.id}>
+                    {org.name}
+                  </option>
                 ))}
               </Select>
             </div>

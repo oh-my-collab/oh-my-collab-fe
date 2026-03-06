@@ -1,7 +1,7 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { ChartCard } from "@/components/reports/chart-card";
 import { InsightPanel } from "@/components/reports/insight-panel";
@@ -13,35 +13,38 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOrganizationsQuery } from "@/features/orgs/queries";
 import { useTeamReportQuery } from "@/features/reports/queries";
-import { useUiStore } from "@/features/shared/ui-store";
+import { useResolvedContext } from "@/features/shared/use-resolved-context";
 import { getApiErrorDescription } from "@/lib/api/error";
 
 export default function ReportsPage() {
   const [period, setPeriod] = useState<"week" | "month">("week");
-
-  const activeOrgId = useUiStore((state) => state.activeOrgId);
-  const setActiveOrgId = useUiStore((state) => state.setActiveOrgId);
-
   const orgQuery = useOrganizationsQuery();
+  const resolvedContext = useResolvedContext({
+    defaultOrgId: orgQuery.data?.defaultOrgId,
+  });
 
-  useEffect(() => {
-    if (!activeOrgId && orgQuery.data?.defaultOrgId) {
-      setActiveOrgId(orgQuery.data.defaultOrgId);
-    }
-  }, [activeOrgId, orgQuery.data?.defaultOrgId, setActiveOrgId]);
+  const reportQuery = useTeamReportQuery(resolvedContext.orgId ?? "", period);
 
-  const reportQuery = useTeamReportQuery(activeOrgId ?? "", period);
-
-  if (orgQuery.isLoading || reportQuery.isLoading) {
+  if (orgQuery.isLoading || (resolvedContext.orgId && reportQuery.isLoading)) {
     return <TableSkeleton rows={5} />;
   }
 
-  if (orgQuery.isError || reportQuery.isError || !reportQuery.data?.report) {
+  if (orgQuery.isError || reportQuery.isError || (resolvedContext.orgId && !reportQuery.data?.report)) {
     const sourceError = orgQuery.error ?? reportQuery.error;
     return (
       <ErrorState
         title="리포트를 불러오지 못했습니다"
         description={getApiErrorDescription(sourceError, "조직 선택 상태를 확인해 주세요.")}
+        onRetry={() => void reportQuery.refetch()}
+      />
+    );
+  }
+
+  if (!resolvedContext.orgId || !reportQuery.data?.report) {
+    return (
+      <ErrorState
+        title="조직 컨텍스트가 필요합니다"
+        description="보고 싶은 조직을 선택하면 리포트가 같은 URL 기준으로 열립니다."
       />
     );
   }
@@ -98,7 +101,9 @@ export default function ReportsPage() {
                 ))}
               </ul>
               <Button variant="outline" size="sm" asChild className="mt-3 w-full">
-                <Link href={`/reports/users/${contributor.userId}`}>근거 보기</Link>
+                <Link href={`/reports/users/${contributor.userId}?orgId=${resolvedContext.orgId}`}>
+                  근거 보기
+                </Link>
               </Button>
             </article>
           ))}

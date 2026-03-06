@@ -1,66 +1,73 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
+import { IssueCard } from "@/components/issues/issue-card";
+import { IssueFormDialog } from "@/components/issues/issue-form-dialog";
 import { DataTable } from "@/components/shared/data-table";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { TableSkeleton } from "@/components/shared/skeletons";
-import { IssueCard } from "@/components/issues/issue-card";
-import { IssueFormDialog } from "@/components/issues/issue-form-dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useSessionQuery } from "@/features/auth/queries";
 import { useIssuesQuery } from "@/features/issues/queries";
 import { useOrganizationsQuery } from "@/features/orgs/queries";
+import { useResolvedContext } from "@/features/shared/use-resolved-context";
 import { useUiStore } from "@/features/shared/ui-store";
 import { getApiErrorDescription } from "@/lib/api/error";
 import { formatDate } from "@/lib/utils";
 
 export default function IssuesPage() {
-  const { data: orgData } = useOrganizationsQuery();
+  const { data: orgData, isLoading: isOrganizationsLoading, isError: isOrganizationsError, error: organizationsError } =
+    useOrganizationsQuery();
   const { data: sessionData } = useSessionQuery();
-  const activeOrgId = useUiStore((state) => state.activeOrgId);
-  const activeRepoId = useUiStore((state) => state.activeRepoId);
   const issueSearch = useUiStore((state) => state.issueSearch);
   const setIssueSearch = useUiStore((state) => state.setIssueSearch);
-  const setActiveOrgId = useUiStore((state) => state.setActiveOrgId);
+  const resolvedContext = useResolvedContext({
+    defaultOrgId: orgData?.defaultOrgId,
+    includeRepoIdInQuery: true,
+  });
 
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("");
   const [labelFilter, setLabelFilter] = useState<string>("");
 
-  useEffect(() => {
-    if (!activeOrgId && orgData?.defaultOrgId) {
-      setActiveOrgId(orgData.defaultOrgId);
-    }
-  }, [activeOrgId, orgData?.defaultOrgId, setActiveOrgId]);
-
   const filters = useMemo(
     () => ({
-      orgId: activeOrgId ?? orgData?.defaultOrgId,
-      repoId: activeRepoId ?? undefined,
+      orgId: resolvedContext.orgId ?? undefined,
+      repoId: resolvedContext.repoId ?? undefined,
       status: statusFilter || undefined,
       assigneeId: assigneeFilter || undefined,
       label: labelFilter || undefined,
       q: issueSearch || undefined,
     }),
-    [activeOrgId, orgData?.defaultOrgId, activeRepoId, statusFilter, assigneeFilter, labelFilter, issueSearch]
+    [assigneeFilter, issueSearch, labelFilter, resolvedContext.orgId, resolvedContext.repoId, statusFilter]
   );
 
   const query = useIssuesQuery(filters);
 
-  if (query.isLoading) {
+  if (isOrganizationsLoading || (filters.orgId && query.isLoading)) {
     return <TableSkeleton />;
   }
 
-  if (query.isError) {
+  if (isOrganizationsError || query.isError) {
+    const sourceError = organizationsError ?? query.error;
     return (
       <ErrorState
         title="이슈 목록을 불러오지 못했습니다"
-        description={getApiErrorDescription(query.error, "필터를 초기화하고 다시 시도해 주세요.")}
+        description={getApiErrorDescription(sourceError, "필터를 초기화하고 다시 시도해 주세요.")}
         onRetry={() => void query.refetch()}
+      />
+    );
+  }
+
+  if (!filters.orgId) {
+    return (
+      <EmptyState
+        title="조직을 먼저 선택해 주세요"
+        description="조직 컨텍스트가 잡히면 이슈 목록과 필터가 활성화됩니다."
       />
     );
   }
@@ -75,8 +82,8 @@ export default function IssuesPage() {
       <header className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.1em] text-primary">Issues</p>
         <h2 className="text-2xl font-bold">이슈 리스트</h2>
-        <p className="text-sm text-muted-foreground">검색/필터와 상세 편집을 한 흐름에서 처리합니다.</p>
-        <p className="text-xs text-muted-foreground">서버 기준 총 {totalCount}건</p>
+        <p className="text-sm text-muted-foreground">검색과 필터로 작업 흐름을 좁히고 상세 편집까지 이어서 처리합니다.</p>
+        <p className="text-xs text-muted-foreground">현재 조건 기준 총 {totalCount}건</p>
       </header>
 
       <div className="grid gap-3 rounded-xl border border-border bg-card p-3 md:grid-cols-2 xl:grid-cols-5">
@@ -96,19 +103,23 @@ export default function IssuesPage() {
         <Select value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)} aria-label="담당자 필터">
           <option value="">담당자 전체</option>
           {users.map((user) => (
-            <option key={user.id} value={user.id}>{user.name}</option>
+            <option key={user.id} value={user.id}>
+              {user.name}
+            </option>
           ))}
         </Select>
         <Select value={labelFilter} onChange={(event) => setLabelFilter(event.target.value)} aria-label="라벨 필터">
           <option value="">라벨 전체</option>
           {labels.map((label) => (
-            <option key={label} value={label}>{label}</option>
+            <option key={label} value={label}>
+              {label}
+            </option>
           ))}
         </Select>
-        {filters.orgId && activeRepoId && sessionData?.user ? (
+        {filters.orgId && resolvedContext.repoId && sessionData?.user ? (
           <IssueFormDialog
             orgId={filters.orgId}
-            repoId={activeRepoId}
+            repoId={resolvedContext.repoId}
             users={users}
             currentUserId={sessionData.user.id}
           />
@@ -116,17 +127,37 @@ export default function IssuesPage() {
       </div>
 
       {!issues.length ? (
-        <EmptyState title="조건에 맞는 이슈가 없습니다" description="필터를 완화하거나 새 이슈를 생성해 주세요." />
+        <EmptyState
+          title="조건에 맞는 이슈가 없습니다"
+          description="필터를 완화하거나 새 이슈를 생성해 보세요."
+        />
       ) : (
         <>
           <DataTable
             columns={[
-              { key: "id", label: "ID", sortable: true, render: (value, row) => <Link className="text-primary hover:underline" href={`/issues/${String(value)}?orgId=${String(row.orgId ?? "")}`}>{String(value)}</Link> },
+              {
+                key: "id",
+                label: "ID",
+                sortable: true,
+                render: (value, row) => (
+                  <Link
+                    className="text-primary hover:underline"
+                    href={`/issues/${String(value)}?orgId=${String(row.orgId ?? filters.orgId ?? "")}`}
+                  >
+                    {String(value)}
+                  </Link>
+                ),
+              },
               { key: "title", label: "제목", sortable: true },
               { key: "status", label: "상태", sortable: true },
               { key: "priority", label: "우선순위", sortable: true },
               { key: "assigneeId", label: "담당자", sortable: true },
-              { key: "dueDate", label: "마감일", sortable: true, render: (value) => formatDate(String(value ?? "")) },
+              {
+                key: "dueDate",
+                label: "마감일",
+                sortable: true,
+                render: (value) => formatDate(String(value ?? "")),
+              },
             ]}
             rows={issues}
             pageSize={8}

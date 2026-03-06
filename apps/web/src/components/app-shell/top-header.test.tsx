@@ -6,6 +6,7 @@ import { useSessionQuery } from "@/features/auth/queries";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/orgs",
+  useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({ push: vi.fn() }),
 }));
 
@@ -22,6 +23,7 @@ vi.mock("@/features/shared/ui-store", () => ({
   useUiStore: (selector: (state: unknown) => unknown) =>
     selector({
       activeOrgId: "org-1",
+      activeRepoId: null,
       issueSearch: "",
       setIssueSearch: vi.fn(),
     }),
@@ -66,7 +68,7 @@ describe("TopHeader", () => {
 
     render(<TopHeader />);
 
-    const profileLinks = screen.getAllByRole("link", { name: "내 프로필" });
-    expect(profileLinks[0]).toHaveAttribute("href", "/settings");
+    const profileLinks = screen.getAllByRole("link", { name: "프로필" });
+    expect(profileLinks[0]).toHaveAttribute("href", "/settings?orgId=org-1");
   });
 });
