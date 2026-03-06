@@ -2,28 +2,26 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect } from "react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { TableSkeleton } from "@/components/shared/skeletons";
+import { useIssuesQuery } from "@/features/issues/queries";
 import { useOrganizationQuery } from "@/features/orgs/queries";
 import { useRepositoriesByOrgQuery } from "@/features/repos/queries";
-import { useIssuesQuery } from "@/features/issues/queries";
-import { useUiStore } from "@/features/shared/ui-store";
+import { useResolvedContext } from "@/features/shared/use-resolved-context";
 import { getApiErrorDescription } from "@/lib/api/error";
 
 export default function OrgDashboardPage() {
   const params = useParams<{ orgId: string }>();
-  const orgId = params.orgId;
-
-  const setActiveOrgId = useUiStore((state) => state.setActiveOrgId);
-
-  useEffect(() => {
-    if (orgId) setActiveOrgId(orgId);
-  }, [orgId, setActiveOrgId]);
+  const resolvedContext = useResolvedContext({
+    routeOrgId: params.orgId,
+    allowStoreFallback: false,
+    allowDefaultOrgFallback: false,
+  });
+  const orgId = resolvedContext.orgId ?? params.orgId;
 
   const orgQuery = useOrganizationQuery(orgId);
   const reposQuery = useRepositoriesByOrgQuery(orgId);
@@ -39,6 +37,7 @@ export default function OrgDashboardPage() {
       <ErrorState
         title="조직 대시보드를 불러오지 못했습니다"
         description={getApiErrorDescription(sourceError, "잠시 후 다시 시도해 주세요.")}
+        onRetry={() => void Promise.all([orgQuery.refetch(), reposQuery.refetch(), issuesQuery.refetch()])}
       />
     );
   }
@@ -48,9 +47,7 @@ export default function OrgDashboardPage() {
   const issues = issuesQuery.data?.issues ?? [];
 
   if (!orgQuery.data?.organization) {
-    return (
-      <EmptyState title="조직을 찾을 수 없습니다" description="다른 조직을 선택해 주세요." />
-    );
+    return <EmptyState title="조직을 찾을 수 없습니다" description="다른 조직을 선택해 주세요." />;
   }
 
   return (
@@ -58,7 +55,7 @@ export default function OrgDashboardPage() {
       <header className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.1em] text-primary">Organization Dashboard</p>
         <h2 className="text-2xl font-bold">{orgQuery.data.organization.name}</h2>
-        <p className="text-sm text-muted-foreground">레포 상태, 활동량, 오픈 이슈를 요약합니다.</p>
+        <p className="text-sm text-muted-foreground">레포 상태와 주요 이슈를 한 화면에서 요약합니다.</p>
       </header>
 
       {summary ? (
@@ -84,7 +81,7 @@ export default function OrgDashboardPage() {
                     <p className="text-sm font-semibold">{repo.name}</p>
                     <p className="text-xs text-muted-foreground">{repo.description}</p>
                   </div>
-                  <Badge variant="secondary">활동 {repo.activityScore}</Badge>
+                  <Badge variant="secondary">활성 {repo.activityScore}</Badge>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
                   <span>오픈 이슈 {repo.openIssueCount}</span>

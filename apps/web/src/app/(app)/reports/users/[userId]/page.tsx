@@ -1,46 +1,50 @@
-﻿"use client";
+"use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { InsightPanel } from "@/components/reports/insight-panel";
 import { ReportKpiCards } from "@/components/reports/report-kpi-cards";
 import { ErrorState } from "@/components/shared/error-state";
 import { TableSkeleton } from "@/components/shared/skeletons";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOrganizationsQuery } from "@/features/orgs/queries";
 import { useUserReportQuery } from "@/features/reports/queries";
-import { useUiStore } from "@/features/shared/ui-store";
+import { useResolvedContext } from "@/features/shared/use-resolved-context";
 import { getApiErrorDescription } from "@/lib/api/error";
 
 export default function UserReportPage() {
   const params = useParams<{ userId: string }>();
   const [period, setPeriod] = useState<"week" | "month">("week");
-
-  const activeOrgId = useUiStore((state) => state.activeOrgId);
-  const setActiveOrgId = useUiStore((state) => state.setActiveOrgId);
-
   const orgQuery = useOrganizationsQuery();
+  const resolvedContext = useResolvedContext({
+    defaultOrgId: orgQuery.data?.defaultOrgId,
+  });
 
-  useEffect(() => {
-    if (!activeOrgId && orgQuery.data?.defaultOrgId) {
-      setActiveOrgId(orgQuery.data.defaultOrgId);
-    }
-  }, [activeOrgId, orgQuery.data?.defaultOrgId, setActiveOrgId]);
+  const reportQuery = useUserReportQuery(resolvedContext.orgId ?? "", params.userId, period);
 
-  const reportQuery = useUserReportQuery(activeOrgId ?? "", params.userId, period);
-
-  if (orgQuery.isLoading || reportQuery.isLoading) {
+  if (orgQuery.isLoading || (resolvedContext.orgId && reportQuery.isLoading)) {
     return <TableSkeleton rows={4} />;
   }
 
-  if (orgQuery.isError || reportQuery.isError || !reportQuery.data?.report) {
+  if (orgQuery.isError || reportQuery.isError || (resolvedContext.orgId && !reportQuery.data?.report)) {
     const sourceError = orgQuery.error ?? reportQuery.error;
     return (
       <ErrorState
         title="유저 리포트를 불러오지 못했습니다"
         description={getApiErrorDescription(sourceError, "조직 또는 유저를 확인해 주세요.")}
+        onRetry={() => void reportQuery.refetch()}
+      />
+    );
+  }
+
+  if (!resolvedContext.orgId || !reportQuery.data?.report) {
+    return (
+      <ErrorState
+        title="조직 컨텍스트가 필요합니다"
+        description="URL에 조직이 포함되면 유저 드릴다운 리포트가 복구됩니다."
       />
     );
   }
@@ -103,10 +107,14 @@ export default function UserReportPage() {
         </CardHeader>
         <CardContent className="space-y-2">
           {report.recentIssues.map((issue) => (
-            <div key={issue.id} className="rounded-md border border-border p-2">
+            <Link
+              key={issue.id}
+              href={`/issues/${issue.id}?orgId=${resolvedContext.orgId}`}
+              className="block rounded-md border border-border p-2 transition hover:bg-muted"
+            >
               <p className="text-sm font-semibold">{issue.id} · {issue.title}</p>
               <p className="text-xs text-muted-foreground">{issue.status} · {issue.priority}</p>
-            </div>
+            </Link>
           ))}
         </CardContent>
       </Card>

@@ -1,21 +1,28 @@
 "use client";
 
-import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartCard } from "@/components/reports/chart-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { TableSkeleton } from "@/components/shared/skeletons";
-import { useRepositoryActivityQuery, useRepositoryQuery } from "@/features/repos/queries";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useIssuesQuery } from "@/features/issues/queries";
+import { useRepositoryActivityQuery, useRepositoryQuery } from "@/features/repos/queries";
+import { useResolvedContext } from "@/features/shared/use-resolved-context";
 import { getApiErrorDescription } from "@/lib/api/error";
 
 export default function RepoDetailPage() {
   const params = useParams<{ orgId: string; repoId: string }>();
-  const orgId = params.orgId;
-  const repoId = params.repoId;
+  const resolvedContext = useResolvedContext({
+    routeOrgId: params.orgId,
+    routeRepoId: params.repoId,
+    allowStoreFallback: false,
+    allowDefaultOrgFallback: false,
+  });
+  const orgId = resolvedContext.orgId ?? params.orgId;
+  const repoId = resolvedContext.repoId ?? params.repoId;
 
   const repoQuery = useRepositoryQuery(orgId, repoId);
   const activityQuery = useRepositoryActivityQuery(orgId, repoId);
@@ -31,6 +38,7 @@ export default function RepoDetailPage() {
       <ErrorState
         title="레포 정보를 불러오지 못했습니다"
         description={getApiErrorDescription(sourceError, "잠시 후 다시 시도해 주세요.")}
+        onRetry={() => void Promise.all([repoQuery.refetch(), activityQuery.refetch(), issuesQuery.refetch()])}
       />
     );
   }
