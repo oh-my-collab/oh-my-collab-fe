@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
   DragEndEvent,
@@ -20,12 +21,15 @@ import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
 import { useEffect, useMemo, useState } from "react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { Issue } from "@/features/shared/types";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useReorderIssuesMutation } from "@/features/issues/mutations";
+import type { Issue } from "@/features/shared/types";
+import type { ApiError } from "@/lib/api/backend-client";
+import { queryKeys } from "@/lib/api/query-keys";
 
 type Status = Issue["status"];
+type Buckets = Record<Status, Issue[]>;
 
 const STATUS_LIST: Status[] = ["backlog", "in_progress", "review", "done"];
 
@@ -36,17 +40,47 @@ const STATUS_LABEL: Record<Status, string> = {
   done: "Done",
 };
 
-function groupIssues(issues: Issue[]) {
+function groupIssues(issues: Issue[]): Buckets {
   return {
     backlog: issues.filter((issue) => issue.status === "backlog"),
     in_progress: issues.filter((issue) => issue.status === "in_progress"),
     review: issues.filter((issue) => issue.status === "review"),
     done: issues.filter((issue) => issue.status === "done"),
-  } as Record<Status, Issue[]>;
+  };
 }
 
-function findStatusByIssueId(buckets: Record<Status, Issue[]>, issueId: string) {
+function serializeBuckets(buckets: Buckets) {
+  return {
+    backlog: buckets.backlog.map((item) => item.id),
+    in_progress: buckets.in_progress.map((item) => item.id),
+    review: buckets.review.map((item) => item.id),
+    done: buckets.done.map((item) => item.id),
+  };
+}
+
+function findStatusByIssueId(buckets: Buckets, issueId: string) {
   return STATUS_LIST.find((status) => buckets[status].some((issue) => issue.id === issueId));
+}
+
+function extractLatestIssue(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return null;
+  }
+
+  const apiError = error as ApiError;
+  const latestIssue = (apiError.issues as { latestIssue?: Issue } | undefined)?.latestIssue;
+  if (!latestIssue) {
+    return null;
+  }
+
+  return latestIssue;
+}
+
+function syncLatestIssue(previousBuckets: Buckets, latestIssue: Issue) {
+  const remainingIssues = STATUS_LIST.flatMap((status) => previousBuckets[status]).filter(
+    (issue) => issue.id !== latestIssue.id
+  );
+  return groupIssues([...remainingIssues, latestIssue]);
 }
 
 function SortableIssueCard({ issue }: { issue: Issue }) {
@@ -87,8 +121,9 @@ export function KanbanBoard({
   repoId: string;
   issues: Issue[];
 }) {
-  const [buckets, setBuckets] = useState<Record<Status, Issue[]>>(groupIssues(issues));
+  const [buckets, setBuckets] = useState<Buckets>(groupIssues(issues));
   const reorderMutation = useReorderIssuesMutation(orgId, repoId);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     setBuckets(groupIssues(issues));
@@ -123,6 +158,7 @@ export function KanbanBoard({
 
     if (!fromStatus || !toStatus) return;
 
+    const previousBuckets = buckets;
     const fromItems = [...buckets[fromStatus]];
     const activeIndex = fromItems.findIndex((issue) => issue.id === activeId);
     if (activeIndex < 0) return;
@@ -132,23 +168,24 @@ export function KanbanBoard({
     if (fromStatus === toStatus) {
       const toIndex = fromItems.findIndex((issue) => issue.id === overId);
       if (toIndex < 0) return;
+
       const nextItems = arrayMove(fromItems, activeIndex, toIndex);
       const nextBuckets = {
         ...buckets,
         [fromStatus]: nextItems,
       };
+
       setBuckets(nextBuckets);
-      reorderMutation.mutate(
-        {
-          backlog: nextBuckets.backlog.map((item) => item.id),
-          in_progress: nextBuckets.in_progress.map((item) => item.id),
-          review: nextBuckets.review.map((item) => item.id),
-          done: nextBuckets.done.map((item) => item.id),
+      reorderMutation.mutate(serializeBuckets(nextBuckets), {
+        onError: () => {
+          setBuckets(previousBuckets);
+          toast.error("보드 순서 저장에 실패했습니다.");
         },
-        {
-          onError: () => toast.error("보드 순서 저장에 실패했습니다."),
-        }
-      );
+        onSettled: () => {
+          void queryClient.invalidateQueries({ queryKey: ["issues"] });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.repo(orgId, repoId) });
+        },
+      });
       return;
     }
 
@@ -171,18 +208,26 @@ export function KanbanBoard({
 
     setBuckets(nextBuckets);
 
-    reorderMutation.mutate(
-      {
-        backlog: nextBuckets.backlog.map((item) => item.id),
-        in_progress: nextBuckets.in_progress.map((item) => item.id),
-        review: nextBuckets.review.map((item) => item.id),
-        done: nextBuckets.done.map((item) => item.id),
+    reorderMutation.mutate(serializeBuckets(nextBuckets), {
+      onSuccess: () => toast.success("이슈 상태를 업데이트했습니다."),
+      onError: (error) => {
+        const apiError = error as ApiError;
+        const latestIssue = extractLatestIssue(error);
+
+        if (apiError.code === "VERSION_CONFLICT" && latestIssue) {
+          setBuckets(syncLatestIssue(previousBuckets, latestIssue));
+          toast.error("최신 이슈 상태를 다시 반영했습니다.");
+          return;
+        }
+
+        setBuckets(previousBuckets);
+        toast.error("보드 업데이트에 실패했습니다.");
       },
-      {
-        onSuccess: () => toast.success("이슈 상태를 업데이트했습니다."),
-        onError: () => toast.error("보드 업데이트에 실패했습니다."),
-      }
-    );
+      onSettled: () => {
+        void queryClient.invalidateQueries({ queryKey: ["issues"] });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.repo(orgId, repoId) });
+      },
+    });
   };
 
   return (

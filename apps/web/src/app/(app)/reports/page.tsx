@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useState } from "react";
@@ -55,8 +55,11 @@ export default function ReportsPage() {
     <section className="space-y-6">
       <header className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.1em] text-primary">Owner Report</p>
-        <h2 className="text-2xl font-bold">AI 기여도/난이도 리포트</h2>
-        <p className="text-sm text-muted-foreground">한 화면에서 결론을 보고, 근거로 드릴다운할 수 있습니다.</p>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold">AI 기여도/난이도 리포트</h2>
+          <Badge variant="secondary" className="text-[10px] uppercase tracking-[0.12em]">demo</Badge>
+        </div>
+        <p className="text-sm text-muted-foreground">한 화면에서 결론을 보고, 근거로 드릴다운할 수 있습니다. 수치는 데모 데이터 기준으로 표시됩니다.</p>
       </header>
 
       <div className="flex gap-2">

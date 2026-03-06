@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -55,7 +55,10 @@ export default function UserReportPage() {
     <section className="space-y-6">
       <header className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.1em] text-primary">User Drill-down</p>
-        <h2 className="text-2xl font-bold">{report.userName} 리포트</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold">{report.userName} 리포트</h2>
+          <Badge variant="secondary" className="text-[10px] uppercase tracking-[0.12em]">demo</Badge>
+        </div>
         <p className="text-sm text-muted-foreground">{report.summary}</p>
       </header>
 
