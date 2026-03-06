@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect } from "react";
 import Link from "next/link";
@@ -14,9 +14,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { getApiErrorDescription } from "@/lib/api/error";
+import { getApiErrorDescription, isUnauthorizedApiError } from "@/lib/api/error";
 
 type LoginFormValues = z.infer<typeof loginSchema>;
+
+function getRedirectTarget() {
+  if (typeof window === "undefined") {
+    return "/orgs";
+  }
+
+  const rawRedirect = new URLSearchParams(window.location.search).get("redirectedFrom");
+  return rawRedirect?.startsWith("/") ? rawRedirect : "/orgs";
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,7 +41,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (sessionQuery.data?.user) {
-      router.replace("/orgs");
+      router.replace(getRedirectTarget());
     }
   }, [router, sessionQuery.data?.user]);
 
@@ -40,16 +49,17 @@ export default function LoginPage() {
     try {
       await loginMutation.mutateAsync(values);
       toast.success("로그인되었습니다.");
-      router.push("/orgs");
+      router.push(getRedirectTarget());
       router.refresh();
     } catch (error) {
       toast.error(getApiErrorDescription(error, "로그인에 실패했습니다."));
     }
   });
 
-  const sessionErrorDescription = sessionQuery.isError
-    ? getApiErrorDescription(sessionQuery.error, "세션 상태를 불러오지 못했습니다.")
-    : null;
+  const sessionErrorDescription =
+    sessionQuery.isError && !isUnauthorizedApiError(sessionQuery.error)
+      ? getApiErrorDescription(sessionQuery.error, "세션 상태를 불러오지 못했습니다.")
+      : null;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-lg items-center px-4 py-10">

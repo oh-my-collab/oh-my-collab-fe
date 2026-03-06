@@ -12,8 +12,17 @@ import type {
 } from "@/features/shared/types";
 import { endpoints } from "@/lib/api/endpoints";
 
+export type ApiError = Error & {
+  code?: string;
+  status: number;
+  requestId?: string;
+  issues?: unknown;
+};
+
 type ApiErrorPayload = {
+  code?: string;
   message?: string;
+  requestId?: string;
   issues?: unknown;
 };
 
@@ -66,6 +75,23 @@ function apiFetch(path: string, options: ApiRequestOptions = {}) {
   return fetch(buildUrl(path, options.searchParams), init);
 }
 
+function readApiErrorPayload(body: unknown): ApiErrorPayload {
+  if (!body || typeof body !== "object") {
+    return {};
+  }
+
+  return body as ApiErrorPayload;
+}
+
+function createApiError(message: string, response: Response, payload: ApiErrorPayload): ApiError {
+  const error = new Error(message) as ApiError;
+  error.status = response.status;
+  error.code = payload.code;
+  error.requestId = payload.requestId;
+  error.issues = payload.issues;
+  return error;
+}
+
 async function parseResponse<T>(responseLike: Response | Promise<Response>): Promise<T> {
   const response = await responseLike;
   const raw = await response.text();
@@ -80,13 +106,11 @@ async function parseResponse<T>(responseLike: Response | Promise<Response>): Pro
   }
 
   if (!response.ok) {
-    const errorPayload = (body ?? {}) as ApiErrorPayload;
+    const errorPayload = readApiErrorPayload(body);
     const message =
       (typeof errorPayload.message === "string" && errorPayload.message) ||
       `HTTP_${response.status}`;
-    const error = new Error(message) as Error & { issues?: unknown };
-    error.issues = errorPayload.issues;
-    throw error;
+    throw createApiError(message, response, errorPayload);
   }
 
   return body as T;

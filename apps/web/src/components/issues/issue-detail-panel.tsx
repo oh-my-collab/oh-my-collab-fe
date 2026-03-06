@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { getApiErrorDescription } from "@/lib/api/error";
 import { formatDate } from "@/lib/utils";
 
 type FormValues = z.input<typeof updateIssueSchema>;
@@ -52,8 +53,8 @@ export function IssueDetailPanel({
     try {
       await mutation.mutateAsync(values);
       toast.success("이슈를 업데이트했습니다.");
-    } catch {
-      toast.error("이슈 업데이트에 실패했습니다.");
+    } catch (updateError) {
+      toast.error(getApiErrorDescription(updateError, "이슈 업데이트에 실패했습니다."));
     }
   });
 
@@ -62,8 +63,8 @@ export function IssueDetailPanel({
       await mutation.mutateAsync({ comment: values.comment });
       commentForm.reset();
       toast.success("코멘트를 등록했습니다.");
-    } catch {
-      toast.error("코멘트 등록에 실패했습니다.");
+    } catch (commentError) {
+      toast.error(getApiErrorDescription(commentError, "코멘트 등록에 실패했습니다."));
     }
   });
 

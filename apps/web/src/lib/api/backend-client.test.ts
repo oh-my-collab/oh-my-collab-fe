@@ -143,12 +143,40 @@ describe("backend-client", () => {
 
     await expect(backendClient.updateIssue("org-1", "ISS-101", { version: 6 })).rejects.toMatchObject({
       message: "Latest version conflict.",
+      code: "VERSION_CONFLICT",
+      status: 409,
+      requestId: "req-1",
       issues: {
         latestIssue: {
           id: "ISS-101",
           version: 7,
         },
       },
+    });
+  });
+
+  it("keeps status and requestId when unauthorized response is json", async () => {
+    process.env.NEXT_PUBLIC_API_BASE_URL = "http://localhost:4000";
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: "UNAUTHORIZED",
+          message: "Session expired.",
+          requestId: "req-401",
+        }),
+        {
+          status: 401,
+          headers: { "content-type": "application/json" },
+        }
+      )
+    );
+
+    await expect(backendClient.getSession()).rejects.toMatchObject({
+      message: "Session expired.",
+      code: "UNAUTHORIZED",
+      status: 401,
+      requestId: "req-401",
     });
   });
 });
