@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { toast } from "sonner";
 
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
+import { getApiErrorDescription } from "@/lib/api/error";
 
 function statusVariant(status: CollabRequest["status"]) {
   switch (status) {
@@ -56,8 +57,8 @@ export function RequestInboxList({
       await updateMutation.mutateAsync({ requestId, input });
       toast.success("요청 상태를 업데이트했습니다.");
       setQuestionMap((prev) => ({ ...prev, [requestId]: "" }));
-    } catch {
-      toast.error("요청 상태 업데이트에 실패했습니다.");
+    } catch (updateError) {
+      toast.error(getApiErrorDescription(updateError, "요청 상태 업데이트에 실패했습니다."));
     }
   };
 

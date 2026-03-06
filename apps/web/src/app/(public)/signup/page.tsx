@@ -14,9 +14,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getApiErrorDescription } from "@/lib/api/error";
+import { getApiErrorDescription, isUnauthorizedApiError } from "@/lib/api/error";
 
 type SignupFormValues = z.infer<typeof signupSchema>;
+
+function getRedirectTarget() {
+  if (typeof window === "undefined") {
+    return "/orgs";
+  }
+
+  const rawRedirect = new URLSearchParams(window.location.search).get("redirectedFrom");
+  return rawRedirect?.startsWith("/") ? rawRedirect : "/orgs";
+}
 
 export default function SignupPage() {
   const router = useRouter();
@@ -33,7 +42,7 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (sessionQuery.data?.user) {
-      router.replace("/orgs");
+      router.replace(getRedirectTarget());
     }
   }, [router, sessionQuery.data?.user]);
 
@@ -41,21 +50,32 @@ export default function SignupPage() {
     try {
       await signupMutation.mutateAsync(values);
       toast.success("회원가입이 완료되었습니다.");
-      router.push("/orgs");
+      router.push(getRedirectTarget());
       router.refresh();
     } catch (error) {
       toast.error(getApiErrorDescription(error, "회원가입에 실패했습니다."));
     }
   });
 
+  const sessionErrorDescription =
+    sessionQuery.isError && !isUnauthorizedApiError(sessionQuery.error)
+      ? getApiErrorDescription(sessionQuery.error, "세션 상태를 불러오지 못했습니다.")
+      : null;
+
   return (
     <main className="mx-auto flex min-h-screen max-w-lg items-center px-4 py-10">
       <Card className="w-full">
         <CardHeader>
           <CardTitle>회원가입</CardTitle>
-          <CardDescription>이름, 이메일, 비밀번호를 입력해 새 계정을 만드세요.</CardDescription>
+          <CardDescription>이름, 이메일, 비밀번호를 입력하고 계정을 만드세요.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {sessionErrorDescription ? (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+              {sessionErrorDescription}
+            </div>
+          ) : null}
+
           <form className="space-y-4" onSubmit={onSignup}>
             <div className="space-y-1">
               <Label htmlFor="signup-name">이름</Label>

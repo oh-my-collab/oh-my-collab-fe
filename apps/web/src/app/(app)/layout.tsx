@@ -1,8 +1,9 @@
-﻿import { cookies } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell/app-shell";
 import { AUTH_SESSION_COOKIE_NAME } from "@/features/auth/constants";
+import { ProtectedSessionBoundary } from "@/features/auth/protected-session-boundary";
 
 export default async function ProtectedLayout({
   children,
@@ -16,5 +17,9 @@ export default async function ProtectedLayout({
     redirect("/login");
   }
 
-  return <AppShell>{children}</AppShell>;
+  return (
+    <AppShell>
+      <ProtectedSessionBoundary>{children}</ProtectedSessionBoundary>
+    </AppShell>
+  );
 }

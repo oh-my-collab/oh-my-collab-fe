@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { getApiErrorDescription } from "@/lib/api/error";
 
 type FormValues = z.input<typeof createIssueSchema>;
 
@@ -68,8 +69,8 @@ export function IssueFormDialog({
       toast.success("이슈를 생성했습니다.");
       form.reset({ ...values, title: "", description: "" });
       setOpen(false);
-    } catch {
-      toast.error("이슈 생성에 실패했습니다.");
+    } catch (createError) {
+      toast.error(getApiErrorDescription(createError, "이슈 생성에 실패했습니다."));
     }
   });
 

@@ -81,7 +81,7 @@ export default function SettingsPage() {
     return (
       <ErrorState
         title="조직 컨텍스트가 필요합니다"
-        description="조직을 먼저 선택한 뒤 설정을 다시 열어주세요."
+        description="조직을 먼저 선택한 뒤 설정을 다시 확인해 주세요."
       />
     );
   }
@@ -90,8 +90,8 @@ export default function SettingsPage() {
     try {
       await updateMutation.mutateAsync(values);
       toast.success("설정을 저장했습니다.");
-    } catch {
-      toast.error("설정 저장에 실패했습니다.");
+    } catch (updateError) {
+      toast.error(getApiErrorDescription(updateError, "설정 저장에 실패했습니다."));
     }
   });
 
@@ -100,7 +100,7 @@ export default function SettingsPage() {
       <header className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.1em] text-primary">Settings</p>
         <h2 className="text-2xl font-bold">조직/알림 설정</h2>
-        <p className="text-sm text-muted-foreground">기본 조직과 알림 정책을 관리합니다.</p>
+        <p className="text-sm text-muted-foreground">기본 조직과 알림 옵션을 관리합니다.</p>
       </header>
 
       <Card>

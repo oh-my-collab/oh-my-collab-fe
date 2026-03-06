@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { getApiErrorDescription } from "@/lib/api/error";
 
 type FormValues = z.infer<typeof createRequestSchema>;
 
@@ -57,8 +58,8 @@ export function RequestComposerModal({
       toast.success("협업 요청을 전송했습니다. 이메일 알림이 발송되었습니다.");
       form.reset({ ...values, message: "" });
       setOpen(false);
-    } catch {
-      toast.error("협업 요청 전송에 실패했습니다.");
+    } catch (createError) {
+      toast.error(getApiErrorDescription(createError, "협업 요청 전송에 실패했습니다."));
     }
   });
 

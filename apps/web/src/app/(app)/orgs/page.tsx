@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
@@ -24,8 +24,8 @@ export default function OrgsPage() {
       await createOrgMutation.mutateAsync(name.trim());
       setName("");
       toast.success("조직을 생성했습니다.");
-    } catch {
-      toast.error("조직 생성에 실패했습니다.");
+    } catch (createError) {
+      toast.error(getApiErrorDescription(createError, "조직 생성에 실패했습니다."));
     }
   };
 
