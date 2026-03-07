@@ -4,6 +4,10 @@ type SearchParamsLike = {
   get(name: string): string | null;
 } | null | undefined;
 
+type SearchParamsStringLike = {
+  toString(): string;
+} | null | undefined;
+
 function isSafeInternalPath(path: string) {
   return path.startsWith("/") && !path.startsWith("//");
 }
@@ -16,6 +20,11 @@ export function readRedirectedFrom(searchParams: SearchParamsLike) {
 
 export function getPostAuthRedirectPath(searchParams: SearchParamsLike) {
   return readRedirectedFrom(searchParams) ?? DEFAULT_POST_AUTH_REDIRECT_PATH;
+}
+
+export function buildRedirectedFrom(pathname: string, searchParams?: SearchParamsStringLike) {
+  const query = searchParams?.toString().trim();
+  return query ? `${pathname}?${query}` : pathname;
 }
 
 export function withRedirectedFrom(path: string, redirectedFrom: string | null) {

@@ -1,4 +1,4 @@
-﻿import { defineConfig } from "@playwright/test";
+import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -7,7 +7,7 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
-    command: "npm run dev",
+    command: "npm run dev -- --webpack",
     env: {
       NEXT_PUBLIC_API_BASE_URL: "http://localhost:3000/__mock_api__",
     },
