@@ -1,9 +1,15 @@
-import { AppShell } from "@/components/app-shell/app-shell";
+import { Suspense } from "react";
+
+import { AppShell, SessionGateFallback } from "@/components/app-shell/app-shell";
 
 export default function ProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <AppShell>{children}</AppShell>;
+  return (
+    <Suspense fallback={<SessionGateFallback />}>
+      <AppShell>{children}</AppShell>
+    </Suspense>
+  );
 }

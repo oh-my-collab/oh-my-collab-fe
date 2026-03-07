@@ -1,4 +1,4 @@
-﻿import { expect, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 type User = { id: string; name: string; email: string; role: "owner" | "user" };
 
@@ -134,14 +134,7 @@ test("랜딩 CTA와 보호 라우트 로그인 복귀가 동작한다", async ({
   );
 
   authenticated = true;
-  await page.context().addCookies([
-    {
-      name: "ohmc_access",
-      value: "session-token",
-      domain: "localhost",
-      path: "/",
-    },
-  ]);
+
 
   await page.getByLabel("이메일").fill("owner@example.com");
   await page.getByLabel("비밀번호").fill("password123");
@@ -227,14 +220,7 @@ test("세션 확인 실패가 있어도 로그인 폼은 계속 사용할 수 �
   await expect(page.getByText("세션을 확인하지 못했습니다. 로그인은 계속 진행할 수 있습니다.")).toBeVisible();
 
   authenticated = true;
-  await page.context().addCookies([
-    {
-      name: "ohmc_access",
-      value: "session-token",
-      domain: "localhost",
-      path: "/",
-    },
-  ]);
+
 
   await page.getByLabel("이메일").fill("owner@example.com");
   await page.getByLabel("비밀번호").fill("password123");
