@@ -1,20 +1,9 @@
-﻿import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-
 import { AppShell } from "@/components/app-shell/app-shell";
-import { AUTH_SESSION_COOKIE_NAME } from "@/features/auth/constants";
 
-export default async function ProtectedLayout({
+export default function ProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const cookieStore = await cookies();
-  const hasSession = Boolean(cookieStore.get(AUTH_SESSION_COOKIE_NAME)?.value);
-
-  if (!hasSession) {
-    redirect("/login");
-  }
-
   return <AppShell>{children}</AppShell>;
 }

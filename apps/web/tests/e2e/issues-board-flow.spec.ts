@@ -1,4 +1,4 @@
-﻿import { expect, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 type User = { id: string; name: string; email: string; role: "owner" | "user" };
 
@@ -190,7 +190,7 @@ test("이슈 생성 후 보드와 상세 화면에서 확인 가능하다", asyn
 
   await page.context().addCookies([
     {
-      name: "auth_session",
+      name: "ohmc_access",
       value: "session-token",
       domain: "localhost",
       path: "/",
@@ -216,3 +216,4 @@ test("이슈 생성 후 보드와 상세 화면에서 확인 가능하다", asyn
   await expect(page).toHaveURL(/\/issues\/ISS-/);
   await expect(page.getByRole("heading", { name: /ISS-\d+/, level: 2 })).toBeVisible();
 });
+

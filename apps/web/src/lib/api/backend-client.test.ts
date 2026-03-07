@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+﻿import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { backendClient, CONFIG_MISSING_API_BASE_URL } from "./backend-client";
 
@@ -117,6 +117,47 @@ describe("backend-client", () => {
     expect(result.sort).toBe("updatedAt:desc");
   });
 
+  it("strips frontend-only ids from createRequest payload", async () => {
+    process.env.NEXT_PUBLIC_API_BASE_URL = "http://localhost:4000";
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          request: {
+            id: "req-1",
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }
+      )
+    );
+
+    await backendClient.createRequest("org-1", {
+      orgId: "org-1",
+      fromUserId: "user-1",
+      toUserId: "user-2",
+      type: "review",
+      message: "Need review",
+      fromDate: "2026-03-07",
+      toDate: "2026-03-10",
+    });
+
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/requests?");
+    expect(url).toContain("orgId=org-1");
+    expect(init.body).toBe(
+      JSON.stringify({
+        toUserId: "user-2",
+        type: "review",
+        message: "Need review",
+        fromDate: "2026-03-07",
+        toDate: "2026-03-10",
+      })
+    );
+  });
+
   it("keeps latestIssue in issues payload on VERSION_CONFLICT", async () => {
     process.env.NEXT_PUBLIC_API_BASE_URL = "http://localhost:4000";
 
@@ -152,3 +193,4 @@ describe("backend-client", () => {
     });
   });
 });
+

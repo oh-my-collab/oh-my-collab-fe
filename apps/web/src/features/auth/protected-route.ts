@@ -1,8 +1,8 @@
 ﻿import { NextResponse, type NextRequest } from "next/server";
 
-import { AUTH_SESSION_COOKIE_NAME } from "./src/features/auth/constants";
+import { getApiAccessCookieName, getApiRefreshCookieName } from "./constants";
 
-const PROTECTED_ROUTE_PREFIXES = [
+export const PROTECTED_ROUTE_PREFIXES = [
   "/orgs",
   "/board",
   "/issues",
@@ -18,10 +18,12 @@ export function isProtectedPath(pathname: string) {
 }
 
 function hasSessionCookie(request: NextRequest) {
-  return Boolean(request.cookies.get(AUTH_SESSION_COOKIE_NAME)?.value);
+  const accessCookie = request.cookies.get(getApiAccessCookieName())?.value;
+  const refreshCookie = request.cookies.get(getApiRefreshCookieName())?.value;
+  return Boolean(accessCookie || refreshCookie);
 }
 
-export function middleware(request: NextRequest) {
+export function handleProtectedRoute(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (!isProtectedPath(pathname)) {
@@ -37,14 +39,3 @@ export function middleware(request: NextRequest) {
   loginUrl.searchParams.set("redirectedFrom", pathname);
   return NextResponse.redirect(loginUrl);
 }
-
-export const config = {
-  matcher: [
-    "/orgs/:path*",
-    "/board/:path*",
-    "/issues/:path*",
-    "/requests/:path*",
-    "/reports/:path*",
-    "/settings/:path*",
-  ],
-};

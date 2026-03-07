@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   AppSettings,
   CollabRequest,
   Issue,
@@ -230,14 +230,17 @@ export const backendClient = {
       })
     ),
 
-  createRequest: (orgId: string, input: Record<string, unknown>) =>
-    parseResponse<{ request: CollabRequest }>(
+  createRequest: (orgId: string, input: Record<string, unknown>) => {
+    const { orgId: _orgId, fromUserId: _fromUserId, ...payload } = input;
+
+    return parseResponse<{ request: CollabRequest }>(
       apiFetch(endpoints.requests.list, {
         method: "POST",
-        body: input,
+        body: payload,
         searchParams: withOrgId(undefined, orgId),
       })
-    ),
+    );
+  },
 
   updateRequest: (orgId: string, requestId: string, input: Record<string, unknown>) =>
     parseResponse<{ request: CollabRequest }>(
@@ -297,3 +300,5 @@ export const backendClient = {
       })
     ),
 };
+
+
