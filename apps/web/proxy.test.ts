@@ -1,13 +1,20 @@
-/**
+﻿/**
  * @vitest-environment node
  */
+
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 
-import { isProtectedPath, middleware } from "./middleware";
+import { proxy } from "./src/proxy";
+import { isProtectedPath } from "./src/features/auth/protected-route";
 
-describe("middleware", () => {
+const currentDir = dirname(fileURLToPath(import.meta.url));
+
+describe("proxy", () => {
   afterEach(() => {
     delete process.env.API_ACCESS_COOKIE_NAME;
     delete process.env.API_REFRESH_COOKIE_NAME;
@@ -25,7 +32,7 @@ describe("middleware", () => {
 
   it("redirects unauthenticated user to login on protected route", () => {
     const request = new NextRequest("http://localhost/issues");
-    const response = middleware(request);
+    const response = proxy(request);
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toContain("/login");
@@ -36,7 +43,7 @@ describe("middleware", () => {
       headers: { cookie: "ohmc_access=session-token" },
     });
 
-    const response = middleware(request);
+    const response = proxy(request);
 
     expect(response.status).toBe(200);
   });
@@ -46,7 +53,7 @@ describe("middleware", () => {
       headers: { cookie: "ohmc_refresh=refresh-token" },
     });
 
-    const response = middleware(request);
+    const response = proxy(request);
 
     expect(response.status).toBe(200);
   });
@@ -56,7 +63,7 @@ describe("middleware", () => {
       headers: { cookie: "auth_session=legacy-token" },
     });
 
-    const response = middleware(request);
+    const response = proxy(request);
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toContain("/login");
@@ -70,8 +77,12 @@ describe("middleware", () => {
       headers: { cookie: "custom_access=session-token" },
     });
 
-    const response = middleware(request);
+    const response = proxy(request);
 
     expect(response.status).toBe(200);
+  });
+
+  it("uses the Next.js 16 proxy file convention instead of root middleware", () => {
+    expect(existsSync(join(currentDir, "middleware.ts"))).toBe(false);
   });
 });

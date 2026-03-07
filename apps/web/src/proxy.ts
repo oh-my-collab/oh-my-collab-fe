@@ -1,9 +1,9 @@
 ﻿import type { NextRequest } from "next/server";
 
-import { middleware } from "../middleware";
+import { handleProtectedRoute } from "./features/auth/protected-route";
 
 export function proxy(request: NextRequest) {
-  return middleware(request);
+  return handleProtectedRoute(request);
 }
 
 export const config = {
