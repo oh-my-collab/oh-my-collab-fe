@@ -1,14 +1,19 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
 
 import { useSessionQuery, useSignupMutation } from "@/features/auth/queries";
+import {
+  getPostAuthRedirectPath,
+  readRedirectedFrom,
+  withRedirectedFrom,
+} from "@/features/auth/redirect";
 import { signupSchema } from "@/features/shared/schemas";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,8 +23,33 @@ import { getApiErrorDescription } from "@/lib/api/error";
 
 type SignupFormValues = z.infer<typeof signupSchema>;
 
-export default function SignupPage() {
+const sessionNotice = "세션을 확인하지 못했습니다. 회원가입은 계속 진행할 수 있습니다.";
+
+function SignupPageFallback() {
+  return (
+    <main className="mx-auto flex min-h-screen max-w-lg items-center px-4 py-10">
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>회원가입</CardTitle>
+          <CardDescription>이름, 이메일, 비밀번호를 입력해 새 계정을 만드세요.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="h-4 w-full rounded bg-muted" />
+          <div className="h-10 w-full rounded bg-muted" />
+          <div className="h-10 w-full rounded bg-muted" />
+          <div className="h-10 w-full rounded bg-muted" />
+          <div className="h-10 w-full rounded bg-muted" />
+        </CardContent>
+      </Card>
+    </main>
+  );
+}
+
+function SignupPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTarget = getPostAuthRedirectPath(searchParams);
+  const redirectedFrom = readRedirectedFrom(searchParams);
   const sessionQuery = useSessionQuery();
   const signupMutation = useSignupMutation();
   const form = useForm<SignupFormValues>({
@@ -33,15 +63,15 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (sessionQuery.data?.user) {
-      router.replace("/orgs");
+      router.replace(redirectTarget);
     }
-  }, [router, sessionQuery.data?.user]);
+  }, [redirectTarget, router, sessionQuery.data?.user]);
 
   const onSignup = form.handleSubmit(async (values) => {
     try {
       await signupMutation.mutateAsync(values);
       toast.success("회원가입이 완료되었습니다.");
-      router.push("/orgs");
+      router.push(redirectTarget);
       router.refresh();
     } catch (error) {
       toast.error(getApiErrorDescription(error, "회원가입에 실패했습니다."));
@@ -56,6 +86,12 @@ export default function SignupPage() {
           <CardDescription>이름, 이메일, 비밀번호를 입력해 새 계정을 만드세요.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {sessionQuery.isError ? (
+            <div className="rounded-md border border-border bg-muted/50 p-3 text-sm text-muted-foreground">
+              {sessionNotice}
+            </div>
+          ) : null}
+
           <form className="space-y-4" onSubmit={onSignup}>
             <div className="space-y-1">
               <Label htmlFor="signup-name">이름</Label>
@@ -89,12 +125,23 @@ export default function SignupPage() {
           </form>
           <p className="text-center text-xs text-muted-foreground">
             이미 계정이 있나요?{" "}
-            <Link href="/login" className="font-medium text-primary underline-offset-4 hover:underline">
+            <Link
+              href={withRedirectedFrom("/login", redirectedFrom)}
+              className="font-medium text-primary underline-offset-4 hover:underline"
+            >
               로그인
             </Link>
           </p>
         </CardContent>
       </Card>
     </main>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<SignupPageFallback />}>
+      <SignupPageContent />
+    </Suspense>
   );
 }

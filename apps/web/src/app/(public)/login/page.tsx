@@ -1,14 +1,19 @@
 ﻿"use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
 
 import { useLoginMutation, useSessionQuery } from "@/features/auth/queries";
+import {
+  getPostAuthRedirectPath,
+  readRedirectedFrom,
+  withRedirectedFrom,
+} from "@/features/auth/redirect";
 import { loginSchema } from "@/features/shared/schemas";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,8 +23,32 @@ import { getApiErrorDescription } from "@/lib/api/error";
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-export default function LoginPage() {
+const sessionNotice = "세션을 확인하지 못했습니다. 로그인은 계속 진행할 수 있습니다.";
+
+function LoginPageFallback() {
+  return (
+    <main className="mx-auto flex min-h-screen max-w-lg items-center px-4 py-10">
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>로그인</CardTitle>
+          <CardDescription>이메일과 비밀번호로 세션을 시작하세요.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="h-4 w-full rounded bg-muted" />
+          <div className="h-10 w-full rounded bg-muted" />
+          <div className="h-10 w-full rounded bg-muted" />
+          <div className="h-10 w-full rounded bg-muted" />
+        </CardContent>
+      </Card>
+    </main>
+  );
+}
+
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTarget = getPostAuthRedirectPath(searchParams);
+  const redirectedFrom = readRedirectedFrom(searchParams);
   const sessionQuery = useSessionQuery();
   const loginMutation = useLoginMutation();
   const form = useForm<LoginFormValues>({
@@ -32,24 +61,20 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (sessionQuery.data?.user) {
-      router.replace("/orgs");
+      router.replace(redirectTarget);
     }
-  }, [router, sessionQuery.data?.user]);
+  }, [redirectTarget, router, sessionQuery.data?.user]);
 
   const onLogin = form.handleSubmit(async (values) => {
     try {
       await loginMutation.mutateAsync(values);
       toast.success("로그인되었습니다.");
-      router.push("/orgs");
+      router.push(redirectTarget);
       router.refresh();
     } catch (error) {
       toast.error(getApiErrorDescription(error, "로그인에 실패했습니다."));
     }
   });
-
-  const sessionErrorDescription = sessionQuery.isError
-    ? getApiErrorDescription(sessionQuery.error, "세션 상태를 불러오지 못했습니다.")
-    : null;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-lg items-center px-4 py-10">
@@ -59,9 +84,9 @@ export default function LoginPage() {
           <CardDescription>이메일과 비밀번호로 세션을 시작하세요.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {sessionErrorDescription ? (
-            <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-              {sessionErrorDescription}
+          {sessionQuery.isError ? (
+            <div className="rounded-md border border-border bg-muted/50 p-3 text-sm text-muted-foreground">
+              {sessionNotice}
             </div>
           ) : null}
 
@@ -91,12 +116,23 @@ export default function LoginPage() {
           </form>
           <p className="text-center text-xs text-muted-foreground">
             계정이 없나요?{" "}
-            <Link href="/signup" className="font-medium text-primary underline-offset-4 hover:underline">
+            <Link
+              href={withRedirectedFrom("/signup", redirectedFrom)}
+              className="font-medium text-primary underline-offset-4 hover:underline"
+            >
               회원가입
             </Link>
           </p>
         </CardContent>
       </Card>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginPageFallback />}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

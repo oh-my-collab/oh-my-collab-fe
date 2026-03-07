@@ -1,7 +1,7 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
-import { ArrowRight, BarChart3, KanbanSquare, Users } from "lucide-react";
+import { BarChart3, KanbanSquare, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,13 +40,10 @@ export default function LandingPage() {
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Button asChild>
-            <Link href="/login">
-              시작하기
-              <ArrowRight className="ml-1 h-4 w-4" />
-            </Link>
+            <Link href="/login">로그인</Link>
           </Button>
           <Button variant="outline" asChild>
-            <Link href="/reports">리포트 미리보기</Link>
+            <Link href="/signup">회원가입</Link>
           </Button>
         </div>
       </section>

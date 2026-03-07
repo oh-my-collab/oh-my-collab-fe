@@ -1,6 +1,11 @@
-﻿import { cookies } from "next/headers";
+import { cookies } from "next/headers";
 
-import { AUTH_SESSION_COOKIE_NAME } from "@/features/auth/constants";
+import { getApiAccessCookieName, getApiRefreshCookieName } from "@/features/auth/constants";
+
+type SessionCookies = {
+  accessToken?: string;
+  refreshToken?: string;
+};
 
 function readCookieValue(rawCookie: string | null, name: string) {
   if (!rawCookie) return undefined;
@@ -12,25 +17,38 @@ function readCookieValue(rawCookie: string | null, name: string) {
   return decodeURIComponent(token.slice(name.length + 1));
 }
 
-export function readSessionCookieFromRequest(request: Request) {
-  return readCookieValue(request.headers.get("cookie"), AUTH_SESSION_COOKIE_NAME);
+export function readSessionCookiesFromRequest(request: Request): SessionCookies {
+  return {
+    accessToken: readCookieValue(request.headers.get("cookie"), getApiAccessCookieName()),
+    refreshToken: readCookieValue(request.headers.get("cookie"), getApiRefreshCookieName()),
+  };
 }
 
-async function readSessionCookieFromServer() {
+async function readSessionCookiesFromServer(): Promise<SessionCookies> {
   const cookieStore = await cookies();
-  return cookieStore.get(AUTH_SESSION_COOKIE_NAME)?.value;
+  return {
+    accessToken: cookieStore.get(getApiAccessCookieName())?.value,
+    refreshToken: cookieStore.get(getApiRefreshCookieName())?.value,
+  };
 }
 
-export async function getOptionalSessionUserId(request?: Request) {
+export async function getOptionalSessionCookies(request?: Request): Promise<SessionCookies> {
   if (request) {
-    return readSessionCookieFromRequest(request);
+    return readSessionCookiesFromRequest(request);
   }
 
-  return readSessionCookieFromServer();
+  return readSessionCookiesFromServer();
 }
 
-export async function getSessionUserIdOrThrow(request?: Request) {
-  const userId = await getOptionalSessionUserId(request);
-  if (!userId) throw new Error("UNAUTHORIZED");
-  return userId;
+export async function getSessionCookiesOrThrow(request?: Request) {
+  const sessionCookies = await getOptionalSessionCookies(request);
+  if (!sessionCookies.accessToken && !sessionCookies.refreshToken) {
+    throw new Error("UNAUTHORIZED");
+  }
+  return sessionCookies;
+}
+
+export async function hasSessionCookies(request?: Request) {
+  const sessionCookies = await getOptionalSessionCookies(request);
+  return Boolean(sessionCookies.accessToken || sessionCookies.refreshToken);
 }

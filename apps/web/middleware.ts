@@ -1,6 +1,6 @@
-﻿import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
-import { AUTH_SESSION_COOKIE_NAME } from "./src/features/auth/constants";
+import { getApiAccessCookieName, getApiRefreshCookieName } from "./src/features/auth/constants";
 
 const PROTECTED_ROUTE_PREFIXES = [
   "/orgs",
@@ -18,7 +18,9 @@ export function isProtectedPath(pathname: string) {
 }
 
 function hasSessionCookie(request: NextRequest) {
-  return Boolean(request.cookies.get(AUTH_SESSION_COOKIE_NAME)?.value);
+  const accessCookie = request.cookies.get(getApiAccessCookieName())?.value;
+  const refreshCookie = request.cookies.get(getApiRefreshCookieName())?.value;
+  return Boolean(accessCookie || refreshCookie);
 }
 
 export function middleware(request: NextRequest) {

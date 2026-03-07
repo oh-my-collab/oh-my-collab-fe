@@ -1,14 +1,18 @@
-﻿/**
+/**
  * @vitest-environment node
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 
-import { AUTH_SESSION_COOKIE_NAME } from "./src/features/auth/constants";
 import { isProtectedPath, middleware } from "./middleware";
 
 describe("middleware", () => {
+  afterEach(() => {
+    delete process.env.API_ACCESS_COOKIE_NAME;
+    delete process.env.API_REFRESH_COOKIE_NAME;
+  });
+
   it("classifies new protected paths", () => {
     expect(isProtectedPath("/orgs")).toBe(true);
     expect(isProtectedPath("/orgs/abc")).toBe(true);
@@ -27,9 +31,43 @@ describe("middleware", () => {
     expect(response.headers.get("location")).toContain("/login");
   });
 
-  it("allows request when auth session cookie is present", () => {
+  it("allows request when the backend access cookie is present", () => {
     const request = new NextRequest("http://localhost/issues", {
-      headers: { cookie: `${AUTH_SESSION_COOKIE_NAME}=session-token` },
+      headers: { cookie: "ohmc_access=session-token" },
+    });
+
+    const response = middleware(request);
+
+    expect(response.status).toBe(200);
+  });
+
+  it("allows request when only the backend refresh cookie is present", () => {
+    const request = new NextRequest("http://localhost/issues", {
+      headers: { cookie: "ohmc_refresh=refresh-token" },
+    });
+
+    const response = middleware(request);
+
+    expect(response.status).toBe(200);
+  });
+
+  it("does not treat the legacy auth_session cookie as authenticated", () => {
+    const request = new NextRequest("http://localhost/issues", {
+      headers: { cookie: "auth_session=legacy-token" },
+    });
+
+    const response = middleware(request);
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/login");
+  });
+
+  it("uses configured backend cookie names", () => {
+    process.env.API_ACCESS_COOKIE_NAME = "custom_access";
+    process.env.API_REFRESH_COOKIE_NAME = "custom_refresh";
+
+    const request = new NextRequest("http://localhost/issues", {
+      headers: { cookie: "custom_access=session-token" },
     });
 
     const response = middleware(request);
