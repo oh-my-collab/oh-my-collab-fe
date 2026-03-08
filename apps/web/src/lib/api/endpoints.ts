@@ -48,5 +48,6 @@
   },
   settings: {
     detail: "/settings",
+    transferOwner: "/settings/platform-owner",
   },
 };

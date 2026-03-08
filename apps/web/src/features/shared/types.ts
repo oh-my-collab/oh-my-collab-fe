@@ -18,6 +18,8 @@ export type GitHubOrgConnection = {
 export type GitHubIntegrationStatus = {
   configured: boolean;
   canBootstrap: boolean;
+  platformOwner?: boolean;
+  ownerEmail?: string;
   slug?: string;
   appUrl?: string;
   installationCount: number;

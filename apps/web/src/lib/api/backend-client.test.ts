@@ -192,5 +192,31 @@ describe("backend-client", () => {
       },
     });
   });
-});
 
+  it("sends platform owner transfer request without orgId", async () => {
+    process.env.NEXT_PUBLIC_API_BASE_URL = "http://localhost:4000";
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          owner: {
+            id: "user-2",
+            email: "next-owner@example.com",
+            name: "Next Owner",
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }
+      )
+    );
+
+    await backendClient.transferPlatformOwner("next-owner@example.com");
+
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://localhost:4000/settings/platform-owner");
+    expect(init.method).toBe("PATCH");
+    expect(init.body).toBe(JSON.stringify({ email: "next-owner@example.com" }));
+  });
+});
