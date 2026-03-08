@@ -1,8 +1,8 @@
 ﻿import Link from "next/link";
 
 import type { Organization } from "@/features/shared/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function OrganizationCard({
   organization,
@@ -19,10 +19,21 @@ export function OrganizationCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{organization.name}</CardTitle>
+        <CardTitle className="flex items-center justify-between gap-2">
+          <span>{organization.name}</span>
+          <span className="rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            {(organization.source ?? "manual").toUpperCase()}
+          </span>
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <p className="text-muted-foreground">{organization.slug}</p>
+        {organization.github?.login ? (
+          <div className="rounded-md border border-border bg-muted/30 p-2 text-xs text-muted-foreground">
+            <p>GitHub 조직: {organization.github.login}</p>
+            <p>동기화 상태: {organization.syncState ?? "pending"}</p>
+          </div>
+        ) : null}
         {summary ? (
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="rounded-md border border-border p-2">

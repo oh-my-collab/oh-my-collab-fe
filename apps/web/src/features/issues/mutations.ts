@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -34,8 +34,7 @@ export function useReorderIssuesMutation(orgId: string, repoId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (buckets: Record<string, unknown>) =>
-      backendClient.reorderIssues(orgId, { orgId, repoId, buckets }),
+    mutationFn: (buckets: Record<string, unknown>) => backendClient.reorderIssues(orgId, { repoId, ...buckets }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["issues"] });
       void queryClient.invalidateQueries({ queryKey: queryKeys.repo(orgId, repoId) });

@@ -1,4 +1,4 @@
-export const queryKeys = {
+﻿export const queryKeys = {
   session: ["session"] as const,
   orgs: ["orgs"] as const,
   org: (orgId: string) => ["org", orgId] as const,
@@ -7,10 +7,12 @@ export const queryKeys = {
   repoActivity: (orgId: string, repoId: string) => ["repoActivity", orgId, repoId] as const,
   issues: (params: string) => ["issues", params] as const,
   issue: (orgId: string, issueId: string) => ["issue", orgId, issueId] as const,
+  planningTasks: (orgId: string, repoId?: string) => ["planningTasks", orgId, repoId ?? "all"] as const,
+  calendarEntries: (orgId: string, range: string) => ["calendarEntries", orgId, range] as const,
+  githubStatus: ["githubStatus"] as const,
   requests: (orgId: string) => ["requests", orgId] as const,
   reportsSummary: (orgId: string, period: string) => ["reportsSummary", orgId, period] as const,
-  reportUser: (orgId: string, userId: string, period: string) =>
-    ["reportUser", orgId, userId, period] as const,
+  reportUser: (orgId: string, userId: string, period: string) => ["reportUser", orgId, userId, period] as const,
   notifications: (orgId: string) => ["notifications", orgId] as const,
   settings: (orgId: string) => ["settings", orgId] as const,
 };

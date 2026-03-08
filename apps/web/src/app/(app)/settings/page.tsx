@@ -1,20 +1,22 @@
-"use client";
+﻿"use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { ErrorState } from "@/components/shared/error-state";
 import { TableSkeleton } from "@/components/shared/skeletons";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { launchGitHubBootstrap, launchGitHubInstall } from "@/features/github/browser";
+import { useGitHubStatusQuery } from "@/features/github/queries";
 import { useOrganizationsQuery } from "@/features/orgs/queries";
-import { useSettingsQuery, useUpdateSettingsMutation } from "@/features/settings/queries";
 import { useUiStore } from "@/features/shared/ui-store";
+import { useSettingsQuery, useUpdateSettingsMutation } from "@/features/settings/queries";
 import { getApiErrorDescription } from "@/lib/api/error";
 
 const schema = z.object({
@@ -31,10 +33,12 @@ export default function SettingsPage() {
   const setActiveOrgId = useUiStore((state) => state.setActiveOrgId);
 
   const orgQuery = useOrganizationsQuery();
+  const githubStatusQuery = useGitHubStatusQuery();
   const resolvedOrgId = activeOrgId ?? orgQuery.data?.defaultOrgId ?? "";
 
   const settingsQuery = useSettingsQuery(resolvedOrgId);
   const updateMutation = useUpdateSettingsMutation(resolvedOrgId);
+  const [isBootstrapping, setIsBootstrapping] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -95,13 +99,54 @@ export default function SettingsPage() {
     }
   });
 
+  const onSetupGitHub = async () => {
+    try {
+      setIsBootstrapping(true);
+      await launchGitHubBootstrap();
+    } catch (error) {
+      toast.error(getApiErrorDescription(error, "GitHub App 설정을 시작하지 못했습니다."));
+      setIsBootstrapping(false);
+    }
+  };
+
   return (
     <section className="space-y-6">
       <header className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.1em] text-primary">Settings</p>
-        <h2 className="text-2xl font-bold">조직/알림 설정</h2>
-        <p className="text-sm text-muted-foreground">기본 조직과 알림 정책을 관리합니다.</p>
+        <h2 className="text-2xl font-bold">조직/연동 설정</h2>
+        <p className="text-sm text-muted-foreground">기본 조직과 알림 정책, GitHub 연동 상태를 한곳에서 관리합니다.</p>
       </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>GitHub Integration</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1 text-sm">
+            <p className="font-semibold">클릭형 GitHub App 부트스트랩</p>
+            <p className="text-muted-foreground">
+              {githubStatusQuery.data?.github.configured
+                ? `연동 준비 완료. 설치 ${githubStatusQuery.data.github.installationCount}건`
+                : "아직 GitHub App이 준비되지 않았습니다."}
+            </p>
+            {githubStatusQuery.data?.github.appUrl ? (
+              <a href={githubStatusQuery.data.github.appUrl} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
+                GitHub App 설정 열기
+              </a>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {!githubStatusQuery.data?.github.configured && githubStatusQuery.data?.github.canBootstrap ? (
+              <Button onClick={onSetupGitHub} disabled={isBootstrapping}>
+                {isBootstrapping ? "GitHub App 생성 중..." : "GitHub App 설정"}
+              </Button>
+            ) : null}
+            {githubStatusQuery.data?.github.configured ? (
+              <Button onClick={launchGitHubInstall}>GitHub 조직 연결</Button>
+            ) : null}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Bell, Moon, Plus, Search, Sun } from "lucide-react";
 import Link from "next/link";
@@ -6,23 +6,19 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { BreadcrumbNav } from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { useSessionQuery } from "@/features/auth/queries";
-import { useNotificationsQuery, useMarkNotificationReadMutation } from "@/features/notifications/queries";
+import { useMarkNotificationReadMutation, useNotificationsQuery } from "@/features/notifications/queries";
 import { useUiStore } from "@/features/shared/ui-store";
 
 const breadcrumbMap: Record<string, Array<{ label: string; href?: string }>> = {
   "/orgs": [{ label: "조직" }],
   "/board": [{ label: "보드" }],
+  "/calendar": [{ label: "일정" }],
   "/issues": [{ label: "이슈" }],
   "/requests": [{ label: "협업 요청" }],
   "/reports": [{ label: "리포트" }],
@@ -46,8 +42,7 @@ export function TopHeader() {
   const displayName = sessionUser?.name?.trim() || "내 프로필";
   const roleLabel = sessionUser?.role === "owner" ? "오너" : "사용자";
   const avatarFallback = displayName.slice(0, 2).toUpperCase();
-  const breadcrumb =
-    Object.entries(breadcrumbMap).find(([key]) => pathname === key || pathname.startsWith(`${key}/`))?.[1] ?? [{ label: "대시보드" }];
+  const breadcrumb = Object.entries(breadcrumbMap).find(([key]) => pathname === key || pathname.startsWith(`${key}/`))?.[1] ?? [{ label: "대시보드" }];
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
@@ -57,18 +52,12 @@ export function TopHeader() {
         </div>
         <div className="relative w-full max-w-md">
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={issueSearch}
-            onChange={(event) => setIssueSearch(event.target.value)}
-            placeholder="이슈/요청 검색"
-            className="pl-9"
-            aria-label="검색"
-          />
+          <Input value={issueSearch} onChange={(event) => setIssueSearch(event.target.value)} placeholder="이슈/요청 검색" className="pl-9" aria-label="검색" />
         </div>
         <Button asChild aria-label="빠른 생성">
-          <Link href="/issues?create=1">
+          <Link href="/board">
             <Plus className="mr-1 h-4 w-4" />
-            빠른 생성
+            작업 추가
           </Link>
         </Button>
 
@@ -84,13 +73,11 @@ export function TopHeader() {
                 key={notification.id}
                 onClick={() => {
                   if (!activeOrgId) return;
-
                   if (!notification.isRead) {
                     markReadMutation.mutate(notification.id);
                     toast.success("알림을 읽음 처리했습니다.");
                   }
-
-                  if (notification.relatedId?.startsWith("ISS")) {
+                  if (notification.relatedId?.startsWith("ISS") || notification.relatedId?.startsWith("GH")) {
                     router.push(`/issues/${notification.relatedId}?orgId=${activeOrgId}`);
                   }
                 }}
@@ -100,26 +87,15 @@ export function TopHeader() {
                 <span className="text-xs text-muted-foreground">{notification.body}</span>
               </DropdownMenuItem>
             ))}
-            {notificationData?.notifications.length ? null : (
-              <DropdownMenuItem className="text-xs text-muted-foreground">알림이 없습니다.</DropdownMenuItem>
-            )}
+            {notificationData?.notifications.length ? null : <DropdownMenuItem className="text-xs text-muted-foreground">알림이 없습니다.</DropdownMenuItem>}
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="테마 전환"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-        >
+        <Button variant="outline" size="icon" aria-label="테마 전환" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
           {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
 
-        <Link
-          href="/settings"
-          aria-label="내 프로필"
-          className="flex items-center gap-2 rounded-md border border-border px-2 py-1 transition-colors hover:bg-muted/50"
-        >
+        <Link href="/settings" aria-label="내 프로필" className="flex items-center gap-2 rounded-md border border-border px-2 py-1 transition-colors hover:bg-muted/50">
           <Avatar>
             <AvatarFallback>{avatarFallback}</AvatarFallback>
           </Avatar>

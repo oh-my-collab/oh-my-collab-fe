@@ -24,7 +24,7 @@ export default function IssueDetailPage() {
     return (
       <ErrorState
         title="조직 컨텍스트가 필요합니다"
-        description="조직 화면에서 이슈를 다시 열거나 orgId 쿼리를 포함해 접근해 주세요."
+        description="조직 화면에서 이슈를 다시 열거나 orgId 쿼리를 포함한 링크로 접근해 주세요."
       />
     );
   }

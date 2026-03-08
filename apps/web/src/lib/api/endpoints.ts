@@ -1,4 +1,4 @@
-export const endpoints = {
+﻿export const endpoints = {
   session: {
     signup: "/auth/signup",
     get: "/auth/session",
@@ -18,6 +18,21 @@ export const endpoints = {
     list: "/issues",
     detail: (issueId: string) => `/issues/${issueId}`,
     reorder: "/issues/reorder",
+  },
+  planning: {
+    tasks: "/planning/tasks",
+    detail: (taskId: string) => `/planning/tasks/${taskId}`,
+    reorder: "/planning/tasks/reorder",
+  },
+  calendar: {
+    events: "/calendar/events",
+    detail: (eventId: string) => `/calendar/events/${eventId}`,
+  },
+  github: {
+    status: "/integrations/github/status",
+    bootstrapManifest: "/integrations/github/bootstrap/manifest",
+    install: "/integrations/github/install",
+    resync: (orgId: string) => `/integrations/github/orgs/${orgId}/resync`,
   },
   requests: {
     list: "/requests",
