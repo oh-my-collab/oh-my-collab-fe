@@ -1,4 +1,4 @@
-﻿import { expect, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 type User = { id: string; name: string; email: string; role: "owner" | "user" };
 
@@ -288,8 +288,8 @@ test("협업 요청과 리포트 화면이 동작한다", async ({ page }) => {
       const now = new Date().toISOString();
       const nextRequest = {
         id: `REQ-${200 + requests.length}`,
-        orgId: payload.orgId,
-        fromUserId: payload.fromUserId,
+        orgId: orgId ?? organizations[0].id,
+        fromUserId: users[0].id,
         toUserId: payload.toUserId,
         type: payload.type,
         message: payload.message,

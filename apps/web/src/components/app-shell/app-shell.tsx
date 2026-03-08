@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -51,10 +51,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto max-w-2xl">
           <ErrorState
             title="세션을 확인할 수 없습니다"
-            description={getApiErrorDescription(
-              sessionQuery.error,
-              "로그인 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요."
-            )}
+            description={getApiErrorDescription(sessionQuery.error, "로그인 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.")}
             onRetry={() => {
               void sessionQuery.refetch();
             }}
@@ -73,8 +70,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
         <aside className="hidden border-r border-border bg-card p-4 lg:block">
           <div className="mb-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">Collaborative OS</p>
-            <h1 className="mt-1 text-lg font-semibold">Jira급 협업 UX</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">OH-MY-COLLAB</p>
+            <h1 className="mt-1 text-lg font-semibold">GitHub 연결 협업 허브</h1>
           </div>
           <OrgRepoSwitcher />
           <div className="mt-4 border-t border-border pt-4">

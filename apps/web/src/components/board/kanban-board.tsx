@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   DndContext,
@@ -6,6 +6,7 @@ import {
   KeyboardSensor,
   PointerSensor,
   closestCenter,
+  useDroppable,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -17,15 +18,16 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { toast } from "sonner";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { Issue } from "@/features/shared/types";
-import { useReorderIssuesMutation } from "@/features/issues/mutations";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useReorderPlanningTasksMutation } from "@/features/planning/mutations";
+import type { PlanningTask } from "@/features/shared/types";
+import { cn } from "@/lib/utils";
 
-type Status = Issue["status"];
+type Status = PlanningTask["status"];
 
 const STATUS_LIST: Status[] = ["backlog", "in_progress", "review", "done"];
 
@@ -36,22 +38,22 @@ const STATUS_LABEL: Record<Status, string> = {
   done: "Done",
 };
 
-function groupIssues(issues: Issue[]) {
+function groupTasks(tasks: PlanningTask[]) {
   return {
-    backlog: issues.filter((issue) => issue.status === "backlog"),
-    in_progress: issues.filter((issue) => issue.status === "in_progress"),
-    review: issues.filter((issue) => issue.status === "review"),
-    done: issues.filter((issue) => issue.status === "done"),
-  } as Record<Status, Issue[]>;
+    backlog: tasks.filter((task) => task.status === "backlog"),
+    in_progress: tasks.filter((task) => task.status === "in_progress"),
+    review: tasks.filter((task) => task.status === "review"),
+    done: tasks.filter((task) => task.status === "done"),
+  } as Record<Status, PlanningTask[]>;
 }
 
-function findStatusByIssueId(buckets: Record<Status, Issue[]>, issueId: string) {
-  return STATUS_LIST.find((status) => buckets[status].some((issue) => issue.id === issueId));
+function findStatusByTaskId(buckets: Record<Status, PlanningTask[]>, taskId: string) {
+  return STATUS_LIST.find((status) => buckets[status].some((task) => task.id === taskId));
 }
 
-function SortableIssueCard({ issue }: { issue: Issue }) {
+function SortableTaskCard({ task }: { task: PlanningTask }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: issue.id,
+    id: task.id,
   });
 
   return (
@@ -64,35 +66,54 @@ function SortableIssueCard({ issue }: { issue: Issue }) {
       className={`rounded-md border border-border bg-card p-3 ${isDragging ? "opacity-70" : ""}`}
       {...attributes}
       {...listeners}
-      aria-label={`${issue.id} ${issue.title}`}
+      aria-label={`${task.title}`}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold text-muted-foreground">{issue.id}</p>
-        <Badge variant={issue.priority === "urgent" ? "danger" : issue.priority === "high" ? "warn" : "secondary"}>
-          {issue.priority}
+        <p className="text-xs font-semibold text-muted-foreground">{task.repoId ? "repo-linked" : "org-wide"}</p>
+        <Badge variant={task.priority === "urgent" ? "danger" : task.priority === "high" ? "warn" : "secondary"}>
+          {task.priority}
         </Badge>
       </div>
-      <p className="mt-1 text-sm font-semibold">{issue.title}</p>
-      <p className="mt-1 text-xs text-muted-foreground">담당: {issue.assigneeId ?? "미지정"}</p>
+      <p className="mt-1 text-sm font-semibold">{task.title}</p>
+      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{task.description || "설명 없음"}</p>
+      <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+        {task.assigneeId ? <span>담당 {task.assigneeId}</span> : <span>담당 미지정</span>}
+        {task.dueDate ? <span>마감 {task.dueDate.slice(0, 10)}</span> : null}
+        {task.linkedIssueId ? <span>GitHub 이슈 연결</span> : null}
+      </div>
     </article>
   );
 }
 
-export function KanbanBoard({
-  orgId,
-  repoId,
-  issues,
-}: {
-  orgId: string;
-  repoId: string;
-  issues: Issue[];
-}) {
-  const [buckets, setBuckets] = useState<Record<Status, Issue[]>>(groupIssues(issues));
-  const reorderMutation = useReorderIssuesMutation(orgId, repoId);
+function DroppableColumn({ status, tasks, taskMap }: { status: Status; tasks: PlanningTask[]; taskMap: Map<string, PlanningTask> }) {
+  const { setNodeRef, isOver } = useDroppable({ id: status });
+
+  return (
+    <Card id={status}>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center justify-between text-sm">
+          <span>{STATUS_LABEL[status]}</span>
+          <Badge variant="secondary">{tasks.length}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent ref={setNodeRef} className={cn("min-h-40 space-y-2 transition-colors", isOver && "bg-muted/20") }>
+        <SortableContext items={tasks.map((task) => task.id)} strategy={verticalListSortingStrategy}>
+          {tasks.map((task) => (
+            <SortableTaskCard key={task.id} task={taskMap.get(task.id) ?? task} />
+          ))}
+        </SortableContext>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function KanbanBoard({ orgId, repoId, tasks }: { orgId: string; repoId?: string; tasks: PlanningTask[] }) {
+  const [buckets, setBuckets] = useState<Record<Status, PlanningTask[]>>(groupTasks(tasks));
+  const reorderMutation = useReorderPlanningTasksMutation(orgId, repoId);
 
   useEffect(() => {
-    setBuckets(groupIssues(issues));
-  }, [issues]);
+    setBuckets(groupTasks(tasks));
+  }, [tasks]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -101,11 +122,11 @@ export function KanbanBoard({
     })
   );
 
-  const issueIds = useMemo(() => {
-    const map = new Map<string, Issue>();
-    issues.forEach((issue) => map.set(issue.id, issue));
+  const taskMap = useMemo(() => {
+    const map = new Map<string, PlanningTask>();
+    tasks.forEach((task) => map.set(task.id, task));
     return map;
-  }, [issues]);
+  }, [tasks]);
 
   const onDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -113,33 +134,28 @@ export function KanbanBoard({
 
     const activeId = String(active.id);
     const overId = String(over.id);
-
     if (activeId === overId) return;
 
-    const fromStatus = findStatusByIssueId(buckets, activeId);
-    const toStatus =
-      findStatusByIssueId(buckets, overId) ??
-      (STATUS_LIST.includes(overId as Status) ? (overId as Status) : undefined);
+    const fromStatus = findStatusByTaskId(buckets, activeId);
+    const toStatus = findStatusByTaskId(buckets, overId) ?? (STATUS_LIST.includes(overId as Status) ? (overId as Status) : undefined);
 
     if (!fromStatus || !toStatus) return;
 
     const fromItems = [...buckets[fromStatus]];
-    const activeIndex = fromItems.findIndex((issue) => issue.id === activeId);
+    const activeIndex = fromItems.findIndex((task) => task.id === activeId);
     if (activeIndex < 0) return;
 
-    const movingIssue = fromItems[activeIndex];
+    const movingTask = fromItems[activeIndex];
 
     if (fromStatus === toStatus) {
-      const toIndex = fromItems.findIndex((issue) => issue.id === overId);
+      const toIndex = fromItems.findIndex((task) => task.id === overId);
       if (toIndex < 0) return;
       const nextItems = arrayMove(fromItems, activeIndex, toIndex);
-      const nextBuckets = {
-        ...buckets,
-        [fromStatus]: nextItems,
-      };
+      const nextBuckets = { ...buckets, [fromStatus]: nextItems };
       setBuckets(nextBuckets);
       reorderMutation.mutate(
         {
+          repoId,
           backlog: nextBuckets.backlog.map((item) => item.id),
           in_progress: nextBuckets.in_progress.map((item) => item.id),
           review: nextBuckets.review.map((item) => item.id),
@@ -153,15 +169,10 @@ export function KanbanBoard({
     }
 
     fromItems.splice(activeIndex, 1);
-
     const toItems = [...buckets[toStatus]];
-    const targetIndex = toItems.findIndex((issue) => issue.id === overId);
+    const targetIndex = toItems.findIndex((task) => task.id === overId);
     const insertIndex = targetIndex < 0 ? toItems.length : targetIndex;
-
-    toItems.splice(insertIndex, 0, {
-      ...movingIssue,
-      status: toStatus,
-    });
+    toItems.splice(insertIndex, 0, { ...movingTask, status: toStatus });
 
     const nextBuckets = {
       ...buckets,
@@ -170,16 +181,16 @@ export function KanbanBoard({
     };
 
     setBuckets(nextBuckets);
-
     reorderMutation.mutate(
       {
+        repoId,
         backlog: nextBuckets.backlog.map((item) => item.id),
         in_progress: nextBuckets.in_progress.map((item) => item.id),
         review: nextBuckets.review.map((item) => item.id),
         done: nextBuckets.done.map((item) => item.id),
       },
       {
-        onSuccess: () => toast.success("이슈 상태를 업데이트했습니다."),
+        onSuccess: () => toast.success("작업 상태를 업데이트했습니다."),
         onError: () => toast.error("보드 업데이트에 실패했습니다."),
       }
     );
@@ -189,24 +200,7 @@ export function KanbanBoard({
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
       <div className="grid gap-4 xl:grid-cols-4">
         {STATUS_LIST.map((status) => (
-          <Card key={status}>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center justify-between text-sm">
-                <span>{STATUS_LABEL[status]}</span>
-                <Badge variant="secondary">{buckets[status].length}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <SortableContext
-                items={buckets[status].map((issue) => issue.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                {buckets[status].map((issue) => (
-                  <SortableIssueCard key={issue.id} issue={issueIds.get(issue.id) ?? issue} />
-                ))}
-              </SortableContext>
-            </CardContent>
-          </Card>
+          <DroppableColumn key={status} status={status} tasks={buckets[status]} taskMap={taskMap} />
         ))}
       </div>
     </DndContext>

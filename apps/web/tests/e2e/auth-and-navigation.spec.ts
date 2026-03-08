@@ -15,6 +15,14 @@ test("랜딩 CTA와 보호 라우트 로그인 복귀가 동작한다", async ({
       slug: "acme-product",
       ownerId: "user-owner",
       memberIds: users.map((user) => user.id),
+      source: "github",
+      syncState: "active",
+      github: {
+        orgId: "github-org-acme",
+        login: "acme",
+        installationId: "inst-acme",
+        connectedAt: "2026-03-01T00:00:00.000Z",
+      },
       createdAt: "2026-02-01T00:00:00.000Z",
     },
   ];
@@ -23,11 +31,16 @@ test("랜딩 CTA와 보호 라우트 로그인 복귀가 동작한다", async ({
     {
       id: "repo-web",
       orgId: "org-acme",
+      provider: "github",
       name: "web-app",
+      fullName: "acme/web-app",
       slug: "web-app",
       description: "웹 프론트엔드",
       language: "TypeScript",
-      openIssueCount: 2,
+      sourceUrl: "https://github.com/acme/web-app",
+      defaultBranch: "main",
+      syncState: "active",
+      openIssueCount: 1,
       weeklyCommits: 12,
       weeklyMerges: 5,
       activityScore: 78,
@@ -37,10 +50,14 @@ test("랜딩 CTA와 보호 라우트 로그인 복귀가 동작한다", async ({
   const issues = [
     {
       id: "ISS-101",
+      issueId: "issue-101",
       orgId: "org-acme",
       repoId: "repo-web",
       title: "보드에서 이슈 카드 드래그 앤 드롭 개선",
       description: "보드 DnD 접근성 개선",
+      externalNumber: 101,
+      sourceUrl: "https://github.com/acme/web-app/issues/101",
+      readOnly: true,
       status: "in_progress",
       assigneeId: "user-jordan",
       labelIds: ["frontend"],
@@ -99,7 +116,7 @@ test("랜딩 CTA와 보호 라우트 로그인 복귀가 동작한다", async ({
       return route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ issues, users }),
+        body: JSON.stringify({ issues, users, totalCount: issues.length }),
       });
     }
 
@@ -108,6 +125,22 @@ test("랜딩 CTA와 보호 라우트 로그인 복귀가 동작한다", async ({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ notifications: [] }),
+      });
+    }
+
+    if (request.method() === "GET" && path === "/integrations/github/status") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          github: {
+            configured: true,
+            canBootstrap: true,
+            installationCount: 1,
+            slug: "oh-my-collab-app",
+            appUrl: "https://github.com/apps/oh-my-collab-app",
+          },
+        }),
       });
     }
 
@@ -135,30 +168,17 @@ test("랜딩 CTA와 보호 라우트 로그인 복귀가 동작한다", async ({
 
   authenticated = true;
 
-
   await page.getByLabel("이메일").fill("owner@example.com");
   await page.getByLabel("비밀번호").fill("password123");
   await page.getByRole("button", { name: "로그인" }).click();
 
   await expect(page).toHaveURL(/\/issues$/);
-  await expect(page.getByRole("heading", { name: "이슈 리스트", level: 2, exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "GitHub 이슈 미러", level: 2 })).toBeVisible();
+  await expect(page.getByRole("link", { name: "GitHub" }).first()).toBeVisible();
 });
 
 test("세션 확인 실패가 있어도 로그인 폼은 계속 사용할 수 있다", async ({ page }) => {
-  const users: User[] = [
-    { id: "user-owner", name: "김오너", email: "owner@example.com", role: "owner" },
-  ];
-
-  const organizations = [
-    {
-      id: "org-acme",
-      name: "Acme Product",
-      slug: "acme-product",
-      ownerId: "user-owner",
-      memberIds: users.map((user) => user.id),
-      createdAt: "2026-02-01T00:00:00.000Z",
-    },
-  ];
+  const users: User[] = [{ id: "user-owner", name: "김오너", email: "owner@example.com", role: "owner" }];
 
   let authenticated = false;
   let failInitialSessionCheck = true;
@@ -197,7 +217,21 @@ test("세션 확인 실패가 있어도 로그인 폼은 계속 사용할 수 �
       return route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ organizations, defaultOrgId: organizations[0].id }),
+        body: JSON.stringify({ organizations: [], defaultOrgId: null }),
+      });
+    }
+
+    if (request.method() === "GET" && path === "/integrations/github/status") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          github: {
+            configured: false,
+            canBootstrap: true,
+            installationCount: 0,
+          },
+        }),
       });
     }
 
@@ -221,11 +255,11 @@ test("세션 확인 실패가 있어도 로그인 폼은 계속 사용할 수 �
 
   authenticated = true;
 
-
   await page.getByLabel("이메일").fill("owner@example.com");
   await page.getByLabel("비밀번호").fill("password123");
   await page.getByRole("button", { name: "로그인" }).click();
 
   await expect(page).toHaveURL(/\/orgs$/);
-  await expect(page.getByRole("heading", { name: "조직 목록" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "GitHub 조직 연결", level: 2 })).toBeVisible();
+  await expect(page.getByRole("button", { name: "GitHub App 설정" }).first()).toBeVisible();
 });

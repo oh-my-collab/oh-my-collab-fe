@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +51,12 @@ export function IssueCard({ issue }: { issue: Issue }) {
         <p>우선순위: {issue.priority}</p>
         <p>담당자: {issue.assigneeId ?? "미지정"}</p>
         <p>마감일: {formatDate(issue.dueDate)}</p>
+        {issue.readOnly ? <p>편집: GitHub 읽기 전용</p> : null}
+        {issue.sourceUrl ? (
+          <a href={issue.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex text-primary hover:underline">
+            GitHub 원본 열기
+          </a>
+        ) : null}
       </CardContent>
     </Card>
   );

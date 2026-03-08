@@ -1,10 +1,15 @@
 ﻿import type {
   AppSettings,
+  CalendarEntry,
   CollabRequest,
+  GitHubIntegrationStatus,
   Issue,
+  IssueComment,
   Notification,
   Organization,
+  PlanningTask,
   Repository,
+  ScheduleEvent,
   SessionPayload,
   TeamReport,
   User,
@@ -27,7 +32,7 @@ type ApiRequestOptions = {
 
 export const CONFIG_MISSING_API_BASE_URL = "CONFIG_MISSING_API_BASE_URL";
 
-function getApiBaseUrl() {
+export function getApiBaseUrl() {
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
   if (!baseUrl) {
     throw new Error(CONFIG_MISSING_API_BASE_URL);
@@ -35,9 +40,13 @@ function getApiBaseUrl() {
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 }
 
+export function buildBackendUrl(path: string) {
+  return `${getApiBaseUrl()}${path}`;
+}
+
 function buildUrl(path: string, searchParams?: URLSearchParams) {
   const query = searchParams ? `?${searchParams.toString()}` : "";
-  return `${getApiBaseUrl()}${path}${query}`;
+  return `${buildBackendUrl(path)}${query}`;
 }
 
 function withOrgId(searchParams: URLSearchParams | undefined, orgId: string) {
@@ -195,7 +204,7 @@ export const backendClient = {
   getIssue: (orgId: string, issueId: string) =>
     parseResponse<{
       issue: Issue;
-      comments: Array<{ id: string; issueId: string; userId: string; body: string; createdAt: string }>;
+      comments: IssueComment[];
       users: User[];
     }>(
       apiFetch(endpoints.issues.detail(issueId), {
@@ -218,6 +227,87 @@ export const backendClient = {
       apiFetch(endpoints.issues.reorder, {
         method: "PATCH",
         body: payload,
+        searchParams: withOrgId(undefined, orgId),
+      })
+    ),
+
+  listPlanningTasks: (orgId: string, params?: URLSearchParams) =>
+    parseResponse<{ tasks: PlanningTask[]; users: User[] }>(
+      apiFetch(endpoints.planning.tasks, {
+        cache: "no-store",
+        searchParams: withOrgId(params, orgId),
+      })
+    ),
+
+  createPlanningTask: (orgId: string, input: Record<string, unknown>) =>
+    parseResponse<{ task: PlanningTask }>(
+      apiFetch(endpoints.planning.tasks, {
+        method: "POST",
+        body: input,
+        searchParams: withOrgId(undefined, orgId),
+      })
+    ),
+
+  updatePlanningTask: (orgId: string, taskId: string, input: Record<string, unknown>) =>
+    parseResponse<{ task: PlanningTask }>(
+      apiFetch(endpoints.planning.detail(taskId), {
+        method: "PATCH",
+        body: input,
+        searchParams: withOrgId(undefined, orgId),
+      })
+    ),
+
+  reorderPlanningTasks: (orgId: string, payload: Record<string, unknown>) =>
+    parseResponse<{ tasks: PlanningTask[]; users: User[] }>(
+      apiFetch(endpoints.planning.reorder, {
+        method: "POST",
+        body: payload,
+        searchParams: withOrgId(undefined, orgId),
+      })
+    ),
+
+  listCalendarEntries: (orgId: string, params: URLSearchParams) =>
+    parseResponse<{ entries: CalendarEntry[] }>(
+      apiFetch(endpoints.calendar.events, {
+        cache: "no-store",
+        searchParams: withOrgId(params, orgId),
+      })
+    ),
+
+  createScheduleEvent: (orgId: string, input: Record<string, unknown>) =>
+    parseResponse<{ event: ScheduleEvent }>(
+      apiFetch(endpoints.calendar.events, {
+        method: "POST",
+        body: input,
+        searchParams: withOrgId(undefined, orgId),
+      })
+    ),
+
+  updateScheduleEvent: (orgId: string, eventId: string, input: Record<string, unknown>) =>
+    parseResponse<{ event: ScheduleEvent }>(
+      apiFetch(endpoints.calendar.detail(eventId), {
+        method: "PATCH",
+        body: input,
+        searchParams: withOrgId(undefined, orgId),
+      })
+    ),
+
+  getGitHubStatus: () =>
+    parseResponse<{ github: GitHubIntegrationStatus }>(
+      apiFetch(endpoints.github.status, { cache: "no-store" })
+    ),
+
+  createGitHubBootstrapManifest: () =>
+    parseResponse<{ alreadyConfigured?: boolean; github?: GitHubIntegrationStatus; submitUrl: string; manifest: Record<string, unknown> }>(
+      apiFetch(endpoints.github.bootstrapManifest, {
+        method: "POST",
+      })
+    ),
+
+  resyncGitHubOrg: (orgId: string) =>
+    parseResponse<{ status: string }>(
+      apiFetch(endpoints.github.resync(orgId), {
+        method: "POST",
         searchParams: withOrgId(undefined, orgId),
       })
     ),
@@ -300,5 +390,3 @@ export const backendClient = {
       })
     ),
 };
-
-

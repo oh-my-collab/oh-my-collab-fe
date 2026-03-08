@@ -1,75 +1,37 @@
-﻿import { expect, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 type User = { id: string; name: string; email: string; role: "owner" | "user" };
 
-test("조직 생성과 설정 저장이 로그인 이후 동작한다", async ({ page }) => {
-  const users: User[] = [
-    { id: "user-owner", name: "김오너", email: "owner@example.com", role: "owner" },
-    { id: "user-jordan", name: "조단", email: "jordan@example.com", role: "user" },
-  ];
+test("GitHub App 설정과 조직 연결, 설정 저장이 로그인 이후 동작한다", async ({ page }) => {
+  const users: User[] = [{ id: "user-owner", name: "김오너", email: "owner@example.com", role: "owner" }];
 
-  const organizations: Array<Record<string, unknown>> = [
-    {
-      id: "org-acme",
-      name: "Acme Product",
-      slug: "acme-product",
-      ownerId: "user-owner",
-      memberIds: users.map((user) => user.id),
-      createdAt: "2026-02-01T00:00:00.000Z",
-    },
-  ];
-
-  const reposByOrg: Record<string, Array<Record<string, unknown>>> = {
+  const repositoriesByOrg: Record<string, Array<Record<string, unknown>>> = {
     "org-acme": [
       {
         id: "repo-web",
         orgId: "org-acme",
+        provider: "github",
         name: "web-app",
+        fullName: "acme/web-app",
         slug: "web-app",
         description: "웹 프론트엔드",
         language: "TypeScript",
-        openIssueCount: 2,
-        weeklyCommits: 12,
-        weeklyMerges: 5,
-        activityScore: 78,
+        sourceUrl: "https://github.com/acme/web-app",
+        defaultBranch: "main",
+        syncState: "active",
+        openIssueCount: 3,
+        weeklyCommits: 14,
+        weeklyMerges: 4,
+        activityScore: 82,
       },
     ],
   };
 
-  const issues = [
-    {
-      id: "ISS-101",
-      orgId: "org-acme",
-      repoId: "repo-web",
-      title: "보드에서 이슈 카드 드래그 앤 드롭 개선",
-      description: "보드 DnD 접근성 개선",
-      status: "in_progress",
-      assigneeId: "user-jordan",
-      labelIds: ["frontend"],
-      priority: "high",
-      dueDate: "2026-03-02",
-      estimatePoints: 5,
-      difficultyScore: 70,
-      impactScore: 80,
-      createdBy: "user-owner",
-      createdAt: "2026-02-25T10:00:00.000Z",
-      updatedAt: "2026-02-25T10:00:00.000Z",
-      order: 1,
-    },
-  ];
-
-  const orgSummaries: Record<string, Record<string, number>> = {
-    "org-acme": {
-      repositoryCount: 1,
-      openIssueCount: 2,
-      inProgressCount: 1,
-      weeklyCommits: 12,
-      weeklyMerges: 5,
-    },
-  };
-
+  const organizations: Array<Record<string, unknown>> = [];
+  let githubConfigured = false;
+  let installationCount = 0;
   let settings = {
-    defaultOrgId: "org-acme",
+    defaultOrgId: "",
     emailNotifications: true,
     mentionNotifications: true,
     issueStatusNotifications: true,
@@ -79,7 +41,6 @@ test("조직 생성과 설정 저장이 로그인 이후 동작한다", async ({
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname.replace("/__mock_api__", "");
-    const orgId = url.searchParams.get("orgId");
 
     if (request.method() === "GET" && path === "/auth/session") {
       return route.fulfill({
@@ -93,80 +54,19 @@ test("조직 생성과 설정 저장이 로그인 이후 동작한다", async ({
       return route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ organizations, defaultOrgId: settings.defaultOrgId }),
-      });
-    }
-
-    if (request.method() === "POST" && path === "/orgs") {
-      const payload = request.postDataJSON() as { name: string };
-      const id = `org-${organizations.length + 1}`;
-      const organization = {
-        id,
-        name: payload.name,
-        slug: payload.name.toLowerCase().replace(/\s+/g, "-"),
-        ownerId: "user-owner",
-        memberIds: users.map((user) => user.id),
-        createdAt: new Date().toISOString(),
-      };
-      organizations.push(organization);
-      reposByOrg[id] = [];
-      orgSummaries[id] = {
-        repositoryCount: 0,
-        openIssueCount: 0,
-        inProgressCount: 0,
-        weeklyCommits: 0,
-        weeklyMerges: 0,
-      };
-
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ organization }),
-      });
-    }
-
-    if (request.method() === "GET" && path.startsWith("/orgs/") && !path.endsWith("/repos")) {
-      const targetOrgId = path.split("/")[2];
-      const organization = organizations.find((item) => item.id === targetOrgId);
-
-      if (!organization) {
-        return route.fulfill({
-          status: 404,
-          contentType: "application/json",
-          body: JSON.stringify({ message: "ORG_NOT_FOUND" }),
-        });
-      }
-
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ organization, summary: orgSummaries[targetOrgId] }),
-      });
-    }
-
-    if (request.method() === "GET" && path.endsWith("/repos")) {
-      const targetOrgId = path.split("/")[2];
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ repositories: reposByOrg[targetOrgId] ?? [] }),
-      });
-    }
-
-    if (request.method() === "GET" && path === "/issues") {
-      const filtered = orgId ? issues.filter((issue) => issue.orgId === orgId) : issues;
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
         body: JSON.stringify({
-          issues: filtered,
-          users,
-          page: 1,
-          size: filtered.length,
-          totalCount: filtered.length,
-          sort: "createdAt:desc",
-          filtersEcho: { orgId: orgId ?? undefined },
+          organizations,
+          defaultOrgId: settings.defaultOrgId || organizations[0]?.id || null,
         }),
+      });
+    }
+
+    if (request.method() === "GET" && path.startsWith("/orgs/") && path.endsWith("/repos")) {
+      const orgId = path.split("/")[2];
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ repositories: repositoriesByOrg[orgId] ?? [] }),
       });
     }
 
@@ -178,17 +78,89 @@ test("조직 생성과 설정 저장이 로그인 이후 동작한다", async ({
       });
     }
 
+    if (request.method() === "GET" && path === "/integrations/github/status") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          github: {
+            configured: githubConfigured,
+            canBootstrap: true,
+            installationCount,
+            slug: githubConfigured ? "oh-my-collab-app" : undefined,
+            appUrl: githubConfigured ? "https://github.com/apps/oh-my-collab-app" : undefined,
+          },
+        }),
+      });
+    }
+
+    if (request.method() === "POST" && path === "/integrations/github/bootstrap/manifest") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          submitUrl: "http://localhost:3000/__mock_api__/github/app-manifest",
+          manifest: {
+            name: "OH-MY-COLLAB",
+            url: "https://oh-my-collab-fe.vercel.app",
+          },
+        }),
+      });
+    }
+
+    if (request.method() === "POST" && path === "/github/app-manifest") {
+      githubConfigured = true;
+      return route.fulfill({
+        status: 302,
+        headers: { location: "/orgs?bootstrapped=1" },
+        body: "",
+      });
+    }
+
+    if (request.method() === "GET" && path === "/integrations/github/install") {
+      installationCount = 1;
+      if (!organizations.length) {
+        organizations.push({
+          id: "org-acme",
+          name: "Acme Platform",
+          slug: "acme-platform",
+          ownerId: "user-owner",
+          memberIds: ["user-owner"],
+          source: "github",
+          syncState: "active",
+          github: {
+            orgId: "github-org-acme",
+            login: "acme",
+            installationId: "inst-acme",
+            connectedAt: "2026-03-01T00:00:00.000Z",
+          },
+          createdAt: "2026-03-01T00:00:00.000Z",
+        });
+        settings = { ...settings, defaultOrgId: "org-acme" };
+      }
+
+      return route.fulfill({
+        status: 302,
+        headers: { location: "/orgs?connected=1" },
+        body: "",
+      });
+    }
+
     if (request.method() === "GET" && path === "/settings") {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ settings }),
+        body: JSON.stringify({
+          settings: {
+            ...settings,
+            defaultOrgId: settings.defaultOrgId || organizations[0]?.id || "",
+          },
+        }),
       });
     }
 
     if (request.method() === "PATCH" && path === "/settings") {
-      const payload = request.postDataJSON() as typeof settings;
-      settings = { ...settings, ...payload };
+      settings = { ...settings, ...(request.postDataJSON() as typeof settings) };
       return route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -203,27 +175,29 @@ test("조직 생성과 설정 저장이 로그인 이후 동작한다", async ({
     });
   });
 
-  await page.context().addCookies([
-    {
-      name: "ohmc_access",
-      value: "session-token",
-      domain: "localhost",
-      path: "/",
-    },
+  await page.goto("/orgs");
+  await expect(page.getByRole("heading", { name: "GitHub 조직 연결", level: 2 })).toBeVisible();
+  await expect(page.getByRole("button", { name: "GitHub App 설정" }).first()).toBeVisible();
+
+  await Promise.all([
+    page.waitForURL(/\/orgs\?bootstrapped=1$/),
+    page.getByRole("button", { name: "GitHub App 설정" }).first().click(),
   ]);
 
-  await page.goto("/orgs");
-  await expect(page.getByRole("heading", { name: "조직 목록" })).toBeVisible();
-  await page.getByLabel("새 조직 이름").fill("Growth Lab");
-  await page.getByRole("button", { name: "조직 생성" }).click();
-  await expect(page.getByRole("heading", { name: "Growth Lab", level: 3 })).toBeVisible();
+  await expect(page.getByRole("button", { name: "GitHub 조직 연결" }).first()).toBeVisible();
 
-  await page.goto("/orgs/org-2");
-  await expect(page.getByRole("heading", { name: "Growth Lab" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "레포 상태" })).toBeVisible();
+  await Promise.all([
+    page.waitForURL(/\/orgs\?connected=1$/),
+    page.getByRole("button", { name: "GitHub 조직 연결" }).first().click(),
+  ]);
+
+  await expect(page.getByRole("heading", { name: "Acme Platform", level: 3 })).toBeVisible();
+  await expect(page.getByText("GitHub 조직: acme")).toBeVisible();
 
   await page.goto("/settings");
-  await expect(page.getByRole("heading", { name: "조직/알림 설정" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "조직/연동 설정", level: 2 })).toBeVisible();
+  await expect(page.getByText("연동 준비 완료. 설치 1건")).toBeVisible();
+  await expect(page.getByRole("button", { name: "GitHub 조직 연결" }).first()).toBeVisible();
 
   const emailCheckbox = page.getByLabel("이메일 알림");
   await expect(emailCheckbox).toBeChecked();
@@ -231,5 +205,3 @@ test("조직 생성과 설정 저장이 로그인 이후 동작한다", async ({
   await page.getByRole("button", { name: "저장" }).click();
   await expect(emailCheckbox).not.toBeChecked();
 });
-
-
