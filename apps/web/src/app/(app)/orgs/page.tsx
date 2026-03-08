@@ -58,6 +58,7 @@ export default function OrgsPage() {
                   : "아직 GitHub App이 구성되지 않았습니다."}
             </p>
             {github?.slug ? <p className="text-xs text-muted-foreground">app slug: {github.slug}</p> : null}
+            {github?.ownerEmail ? <p className="text-xs text-muted-foreground">현재 플랫폼 오너: {github.ownerEmail}</p> : null}
           </div>
           <div className="flex flex-wrap gap-2">
             {!github?.configured && github?.canBootstrap ? (
@@ -71,7 +72,10 @@ export default function OrgsPage() {
           </div>
         </div>
         {!github?.configured && !github?.canBootstrap && !githubStatusQuery.isLoading ? (
-          <p className="mt-4 text-xs text-muted-foreground">현재 계정은 owner 권한이 없어 GitHub App 설정을 직접 시작할 수 없습니다.</p>
+          <p className="mt-4 text-xs text-muted-foreground">
+            현재 계정은 플랫폼 오너 권한이 없어 GitHub App 설정을 직접 시작할 수 없습니다.
+            {github?.ownerEmail ? ` 현재 플랫폼 오너는 ${github.ownerEmail} 입니다.` : ""}
+          </p>
         ) : null}
       </div>
 

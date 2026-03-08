@@ -304,6 +304,14 @@ export const backendClient = {
       })
     ),
 
+  transferPlatformOwner: (email: string) =>
+    parseResponse<{ owner: { id: string; email: string; name: string; isPlatformOwner: boolean } }>(
+      apiFetch(endpoints.settings.transferOwner, {
+        method: "PATCH",
+        body: { email },
+      })
+    ),
+
   resyncGitHubOrg: (orgId: string) =>
     parseResponse<{ status: string }>(
       apiFetch(endpoints.github.resync(orgId), {

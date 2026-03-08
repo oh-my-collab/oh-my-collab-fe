@@ -10,13 +10,18 @@ import { ErrorState } from "@/components/shared/error-state";
 import { TableSkeleton } from "@/components/shared/skeletons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { launchGitHubBootstrap, launchGitHubInstall } from "@/features/github/browser";
 import { useGitHubStatusQuery } from "@/features/github/queries";
 import { useOrganizationsQuery } from "@/features/orgs/queries";
 import { useUiStore } from "@/features/shared/ui-store";
-import { useSettingsQuery, useUpdateSettingsMutation } from "@/features/settings/queries";
+import {
+  useSettingsQuery,
+  useTransferPlatformOwnerMutation,
+  useUpdateSettingsMutation,
+} from "@/features/settings/queries";
 import { getApiErrorDescription } from "@/lib/api/error";
 
 const schema = z.object({
@@ -38,7 +43,9 @@ export default function SettingsPage() {
 
   const settingsQuery = useSettingsQuery(resolvedOrgId);
   const updateMutation = useUpdateSettingsMutation(resolvedOrgId);
+  const transferOwnerMutation = useTransferPlatformOwnerMutation();
   const [isBootstrapping, setIsBootstrapping] = useState(false);
+  const [transferEmail, setTransferEmail] = useState("");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -67,35 +74,27 @@ export default function SettingsPage() {
     });
   }, [form, settingsQuery.data?.settings]);
 
-  if (orgQuery.isLoading || settingsQuery.isLoading) {
+  if (orgQuery.isLoading) {
     return <TableSkeleton rows={4} />;
   }
 
-  if (orgQuery.isError || settingsQuery.isError) {
-    const sourceError = orgQuery.error ?? settingsQuery.error;
+  if (orgQuery.isError) {
     return (
       <ErrorState
         title="설정 정보를 불러오지 못했습니다"
-        description={getApiErrorDescription(sourceError, "잠시 후 다시 시도해 주세요.")}
+        description={getApiErrorDescription(orgQuery.error, "잠시 후 다시 시도해 주세요.")}
       />
     );
   }
 
-  if (!resolvedOrgId) {
-    return (
-      <ErrorState
-        title="조직 컨텍스트가 필요합니다"
-        description="조직을 먼저 선택한 뒤 설정을 다시 열어주세요."
-      />
-    );
-  }
+  const github = githubStatusQuery.data?.github;
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
       await updateMutation.mutateAsync(values);
       toast.success("설정을 저장했습니다.");
-    } catch {
-      toast.error("설정 저장에 실패했습니다.");
+    } catch (error) {
+      toast.error(getApiErrorDescription(error, "설정 저장에 실패했습니다."));
     }
   });
 
@@ -106,6 +105,21 @@ export default function SettingsPage() {
     } catch (error) {
       toast.error(getApiErrorDescription(error, "GitHub App 설정을 시작하지 못했습니다."));
       setIsBootstrapping(false);
+    }
+  };
+
+  const onTransferPlatformOwner = async () => {
+    if (!transferEmail.trim()) {
+      toast.error("양도할 사용자 이메일을 입력해 주세요.");
+      return;
+    }
+
+    try {
+      const result = await transferOwnerMutation.mutateAsync(transferEmail.trim());
+      toast.success(`${result.owner.email} 계정으로 플랫폼 오너 권한을 양도했습니다.`);
+      setTransferEmail("");
+    } catch (error) {
+      toast.error(getApiErrorDescription(error, "플랫폼 오너 권한을 양도하지 못했습니다."));
     }
   };
 
@@ -125,23 +139,26 @@ export default function SettingsPage() {
           <div className="space-y-1 text-sm">
             <p className="font-semibold">클릭형 GitHub App 부트스트랩</p>
             <p className="text-muted-foreground">
-              {githubStatusQuery.data?.github.configured
-                ? `연동 준비 완료. 설치 ${githubStatusQuery.data.github.installationCount}건`
-                : "아직 GitHub App이 준비되지 않았습니다."}
+              {githubStatusQuery.isLoading
+                ? "GitHub 연동 상태를 확인하는 중입니다."
+                : github?.configured
+                  ? `연동 준비 완료. 설치 ${github.installationCount}건`
+                  : "아직 GitHub App이 준비되지 않았습니다."}
             </p>
-            {githubStatusQuery.data?.github.appUrl ? (
-              <a href={githubStatusQuery.data.github.appUrl} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
+            {github?.ownerEmail ? <p className="text-xs text-muted-foreground">현재 플랫폼 오너: {github.ownerEmail}</p> : null}
+            {github?.appUrl ? (
+              <a href={github.appUrl} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
                 GitHub App 설정 열기
               </a>
             ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
-            {!githubStatusQuery.data?.github.configured && githubStatusQuery.data?.github.canBootstrap ? (
-              <Button onClick={onSetupGitHub} disabled={isBootstrapping}>
+            {!github?.configured && github?.canBootstrap ? (
+              <Button onClick={onSetupGitHub} disabled={isBootstrapping || githubStatusQuery.isLoading}>
                 {isBootstrapping ? "GitHub App 생성 중..." : "GitHub App 설정"}
               </Button>
             ) : null}
-            {githubStatusQuery.data?.github.configured ? (
+            {github?.configured ? (
               <Button onClick={launchGitHubInstall}>GitHub 조직 연결</Button>
             ) : null}
           </div>
@@ -150,37 +167,94 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>기본 설정</CardTitle>
+          <CardTitle>Platform Owner</CardTitle>
         </CardHeader>
-        <CardContent>
-          <form className="space-y-4" onSubmit={onSubmit}>
-            <div className="space-y-1">
-              <Label htmlFor="default-org">기본 조직</Label>
-              <Select id="default-org" {...form.register("defaultOrgId")}>
-                {(orgQuery.data?.organizations ?? []).map((org) => (
-                  <option key={org.id} value={org.id}>{org.name}</option>
-                ))}
-              </Select>
-            </div>
+        <CardContent className="space-y-4 text-sm">
+          <div className="space-y-1">
+            <p className="font-semibold">플랫폼 오너 권한</p>
+            <p className="text-muted-foreground">
+              첫 가입자는 자동으로 플랫폼 오너가 됩니다. 이 권한은 GitHub App 설정 시작 권한과 함께 양도됩니다.
+            </p>
+            {github?.ownerEmail ? <p className="text-xs text-muted-foreground">현재 플랫폼 오너: {github.ownerEmail}</p> : null}
+          </div>
 
-            <div className="space-y-2 rounded-md border border-border p-3 text-sm">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" {...form.register("emailNotifications")} /> 이메일 알림
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" {...form.register("mentionNotifications")} /> 멘션 알림
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" {...form.register("issueStatusNotifications")} /> 이슈 상태 변경 알림
-              </label>
+          {github?.platformOwner ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex-1 space-y-1">
+                <Label htmlFor="platform-owner-email">양도할 사용자 이메일</Label>
+                <Input
+                  id="platform-owner-email"
+                  type="email"
+                  placeholder="next-owner@example.com"
+                  value={transferEmail}
+                  onChange={(event) => setTransferEmail(event.target.value)}
+                />
+              </div>
+              <Button type="button" onClick={onTransferPlatformOwner} disabled={transferOwnerMutation.isPending || githubStatusQuery.isLoading}>
+                {transferOwnerMutation.isPending ? "양도 중..." : "오너 권한 양도"}
+              </Button>
             </div>
-
-            <Button type="submit" disabled={updateMutation.isPending || !resolvedOrgId}>
-              {updateMutation.isPending ? "저장 중..." : "저장"}
-            </Button>
-          </form>
+          ) : (
+            <p className="text-muted-foreground">
+              현재 계정은 플랫폼 오너가 아니므로 권한 양도를 실행할 수 없습니다.
+            </p>
+          )}
         </CardContent>
       </Card>
+
+      {resolvedOrgId ? (
+        settingsQuery.isLoading ? (
+          <TableSkeleton rows={4} />
+        ) : settingsQuery.isError ? (
+          <ErrorState
+            title="조직 설정을 불러오지 못했습니다"
+            description={getApiErrorDescription(settingsQuery.error, "잠시 후 다시 시도해 주세요.")}
+          />
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>기본 설정</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-4" onSubmit={onSubmit}>
+                <div className="space-y-1">
+                  <Label htmlFor="default-org">기본 조직</Label>
+                  <Select id="default-org" {...form.register("defaultOrgId")}>
+                    {(orgQuery.data?.organizations ?? []).map((org) => (
+                      <option key={org.id} value={org.id}>{org.name}</option>
+                    ))}
+                  </Select>
+                </div>
+
+                <div className="space-y-2 rounded-md border border-border p-3 text-sm">
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" {...form.register("emailNotifications")} /> 이메일 알림
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" {...form.register("mentionNotifications")} /> 멘션 알림
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" {...form.register("issueStatusNotifications")} /> 이슈 상태 변경 알림
+                  </label>
+                </div>
+
+                <Button type="submit" disabled={updateMutation.isPending || !resolvedOrgId}>
+                  {updateMutation.isPending ? "저장 중..." : "저장"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>기본 설정</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">조직을 연결한 뒤 기본 조직과 알림 정책을 설정할 수 있습니다.</p>
+          </CardContent>
+        </Card>
+      )}
     </section>
   );
 }

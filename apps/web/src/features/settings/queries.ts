@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -19,6 +19,17 @@ export function useUpdateSettingsMutation(orgId: string) {
     mutationFn: (input: Record<string, unknown>) => backendClient.updateSettings(orgId, input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.settings(orgId) });
+    },
+  });
+}
+
+export function useTransferPlatformOwnerMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (email: string) => backendClient.transferPlatformOwner(email),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.githubStatus });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.session });
     },
   });
 }
